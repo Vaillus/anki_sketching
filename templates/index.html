@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anki Sketching</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+        }
+        
+        #toolbar { 
+            position: fixed; 
+            top: 10px; 
+            left: 10px; 
+            z-index: 1000; 
+            background: white; 
+            padding: 10px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #zoom-controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #zoom-controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #canvas-container { 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            cursor: grab;
+        }
+        
+        #canvas-container.dragging {
+            cursor: grabbing;
+        }
+        
+        #canvas {
+            position: absolute;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+        }
+        
+        .card-box {
+            position: absolute;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 1em;
+            width: 300px;
+            height: 200px;
+            overflow: auto;
+            background-color: white;
+            cursor: move;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: left 0.3s ease-out, top 0.3s ease-out;
+        }
+        
+        .card-box:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .card-box img { 
+            max-width: 100%; 
+            height: auto; 
+        }
+        
+        #info-panel {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <h3 style="margin: 0 0 10px 0;">Anki Sketching</h3>
+        <form id="import-form">
+            <select id="deck-name" name="deck_name" required>
+                <option value="" disabled selected>Choisir un paquet</option>
+                {% for deck in decks %}
+                <option value="{{ deck }}">{{ deck }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Importer</button>
+        </form>
+    </div>
+
+    <div id="zoom-controls">
+        <button id="zoom-in">+</button>
+        <span id="zoom-level">100%</span>
+        <button id="zoom-out">-</button>
+        <button id="reset-view">Reset</button>
+    </div>
+
+    <div id="canvas-container">
+        <div id="canvas">
+            <!-- Les cartes seront ajoutées ici -->
+        </div>
+    </div>
+
+    <div id="info-panel">
+        Position: <span id="position">0, 0</span> | Zoom: <span id="zoom-info">100%</span>
+    </div>
+
+    <script>
+        // Variables globales pour le canvas
+        let canvasX = 0, canvasY = 0, zoom = 1;
+        let isDraggingCanvas = false;
+        let lastMouseX = 0, lastMouseY = 0;
+        let cardCounter = 0;
+        let cards = []; // Tableau pour stocker toutes les cartes
+
+        const canvas = document.getElementById('canvas');
+        const canvasContainer = document.getElementById('canvas-container');
+        const zoomLevel = document.getElementById('zoom-level');
+        const zoomInfo = document.getElementById('zoom-info');
+        const position = document.getElementById('position');
+
+        // Fonction pour vérifier si deux rectangles se chevauchent
+        function isOverlapping(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                     rect2.right < rect1.left || 
+                     rect1.bottom < rect2.top || 
+                     rect2.bottom < rect1.top);
+        }
+
+        // Fonction pour obtenir les dimensions d'une carte
+        function getCardRect(cardElement) {
+            const left = parseInt(cardElement.style.left) || 0;
+            const top = parseInt(cardElement.style.top) || 0;
+            const width = 300; // largeur fixe des cartes
+            const height = 200; // hauteur fixe des cartes
+            
+            return {
+                left: left,
+                top: top,
+                right: left + width,
+                bottom: top + height,
+                centerX: left + width / 2,
+                centerY: top + height / 2
+            };
+        }
+
+        // Variables globales pour la physique
+        let isRepelling = false; // Flag pour éviter les conflits de répulsion
+
+        // Fonction pour repousser les cartes qui se chevauchent
+        function repelOverlappingCards() {
+            physicsRepulsion();
+        }
+
+        // Système de répulsion physique amélioré
+        function physicsRepulsion() {
+            if (isRepelling) return;
+            isRepelling = true;
+
+            let hasOverlaps = true;
+            let iterations = 0;
+            const maxIterations = 50;
+
+            function repelStep() {
+                hasOverlaps = false;
+                const forces = new Map();
+
+                // Initialise les forces pour chaque carte
+                cards.forEach(card => {
+                    forces.set(card, { x: 0, y: 0 });
+                });
+
+                // Calcule les forces de répulsion entre toutes les paires de cartes
+                for (let i = 0; i < cards.length; i++) {
+                    for (let j = i + 1; j < cards.length; j++) {
+                        const card1 = cards[i];
+                        const card2 = cards[j];
+                        const rect1 = getCardRect(card1);
+                        const rect2 = getCardRect(card2);
+                        
+                        if (isOverlapping(rect1, rect2)) {
+                            hasOverlaps = true;
+                            
+                            // Calcule la direction et distance de répulsion
+                            const deltaX = rect2.centerX - rect1.centerX;
+                            const deltaY = rect2.centerY - rect1.centerY;
+                            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                            
+                            if (distance === 0) {
+                                // Si les cartes sont exactement au même endroit
+                                const force1 = forces.get(card1);
+                                const force2 = forces.get(card2);
+                                force1.x -= 30;
+                                force1.y -= 30;
+                                force2.x += 30;
+                                force2.y += 30;
+                            } else {
+                                // Calcule la force de répulsion nécessaire pour séparer les cartes
+                                const overlapX = Math.max(0, (300) - Math.abs(deltaX));
+                                const overlapY = Math.max(0, (200) - Math.abs(deltaY));
+                                const overlap = overlapX + overlapY;
+                                
+                                const forceStrength = Math.min(40, overlap * 0.3 + 15);
+                                const normalX = deltaX / distance;
+                                const normalY = deltaY / distance;
+                                
+                                const force1 = forces.get(card1);
+                                const force2 = forces.get(card2);
+                                
+                                force1.x -= normalX * forceStrength;
+                                force1.y -= normalY * forceStrength;
+                                force2.x += normalX * forceStrength;
+                                force2.y += normalY * forceStrength;
+                            }
+                        }
+                    }
+                }
+
+                // Applique les forces calculées avec une animation smooth
+                forces.forEach((force, card) => {
+                    if (Math.abs(force.x) > 0.1 || Math.abs(force.y) > 0.1) {
+                        const currentLeft = parseInt(card.style.left) || 0;
+                        const currentTop = parseInt(card.style.top) || 0;
+                        
+                        // Applique un facteur d'amortissement pour des mouvements plus fluides
+                        const dampening = 0.7;
+                        card.style.left = (currentLeft + force.x * dampening) + 'px';
+                        card.style.top = (currentTop + force.y * dampening) + 'px';
+                    }
+                });
+
+                iterations++;
+                
+                // Continue la simulation si il y a encore des chevauchements
+                if (hasOverlaps && iterations < maxIterations) {
+                    setTimeout(repelStep, 80); // Délai pour l'animation
+                } else {
+                    isRepelling = false;
+                }
+            }
+
+            repelStep();
+        }
+
+        // Fonction pour mettre à jour la transformation du canvas
+        function updateCanvasTransform() {
+            canvas.style.transform = `translate(${canvasX}px, ${canvasY}px) scale(${zoom})`;
+            zoomLevel.textContent = Math.round(zoom * 100) + '%';
+            zoomInfo.textContent = Math.round(zoom * 100) + '%';
+            position.textContent = `${Math.round(-canvasX)}, ${Math.round(-canvasY)}`;
+        }
+
+        // Gestion du zoom avec la molette
+        canvasContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = canvasContainer.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const oldZoom = zoom;
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            zoom = Math.max(0.1, Math.min(3, zoom * zoomFactor));
+            
+            // Ajuste la position pour zoomer vers la souris
+            const zoomChange = zoom / oldZoom;
+            canvasX = mouseX - (mouseX - canvasX) * zoomChange;
+            canvasY = mouseY - (mouseY - canvasY) * zoomChange;
+            
+            updateCanvasTransform();
+        });
+
+        // Gestion du déplacement du canvas
+        canvasContainer.addEventListener('mousedown', (e) => {
+            if (e.target === canvasContainer || e.target === canvas) {
+                isDraggingCanvas = true;
+                canvasContainer.classList.add('dragging');
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDraggingCanvas) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                canvasX += deltaX;
+                canvasY += deltaY;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                updateCanvasTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingCanvas = false;
+            canvasContainer.classList.remove('dragging');
+        });
+
+        // Contrôles de zoom
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            zoom = Math.min(3, zoom * 1.2);
+            updateCanvasTransform();
+        });
+
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            zoom = Math.max(0.1, zoom * 0.8);
+            updateCanvasTransform();
+        });
+
+        document.getElementById('reset-view').addEventListener('click', () => {
+            canvasX = 0;
+            canvasY = 0;
+            zoom = 1;
+            updateCanvasTransform();
+        });
+
+        // Fonction pour rendre une carte déplaçable
+        function makeDraggable(element) {
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = parseInt(element.style.left) || 0;
+                startTop = parseInt(element.style.top) || 0;
+                element.style.zIndex = ++cardCounter;
+                
+                // Désactive temporairement les transitions pendant le drag
+                element.style.transition = 'none';
+                
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = (e.clientX - startX) / zoom;
+                    const deltaY = (e.clientY - startY) / zoom;
+                    element.style.left = (startLeft + deltaX) + 'px';
+                    element.style.top = (startTop + deltaY) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // Réactive les transitions pour l'animation de répulsion
+                    element.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
+                    
+                    // Vérifie et repousse les cartes qui se chevauchent après le déplacement
+                    setTimeout(() => repelOverlappingCards(), 50);
+                }
+            });
+        }
+
+        // Gestion du formulaire d'import
+        document.getElementById('import-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const deckName = document.getElementById('deck-name').value;
+            
+            fetch('/import_deck', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `deck_name=${encodeURIComponent(deckName)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(`Erreur: ${data.error}`);
+                    return;
+                }
+                if (data.length === 0) {
+                    alert('Aucune carte trouvée.');
+                    return;
+                }
+
+                data.forEach((card, index) => {
+                    const cardBox = document.createElement('div');
+                    cardBox.className = 'card-box';
+                    cardBox.setAttribute('data-card-id', card.card_id);
+                    
+                    // Position en grille (4 par rangée)
+                    const cardsPerRow = 4;
+                    const cardWidth = 320;
+                    const cardHeight = 220;
+                    const col = index % cardsPerRow;
+                    const row = Math.floor(index / cardsPerRow);
+                    
+                    cardBox.style.left = (col * cardWidth) + 'px';
+                    cardBox.style.top = (row * cardHeight) + 'px';
+                    cardBox.style.zIndex = ++cardCounter;
+                    
+                    let content = '';
+                    for (const [field, text] of Object.entries(card.texts)) {
+                        content += `<strong>${field}:</strong><p>${text}</p>`;
+                    }
+                    card.images.forEach(imgPath => {
+                        content += `<img src="${imgPath}" alt="Image de la carte">`;
+                    });
+
+                    cardBox.innerHTML = content;
+                    canvas.appendChild(cardBox);
+                    cards.push(cardBox); // Ajoute la carte au tableau
+                    makeDraggable(cardBox);
+                });
+                
+                // Applique la répulsion après avoir chargé toutes les cartes
+                setTimeout(() => repelOverlappingCards(), 100);
+            })
+            .catch(error => {
+                alert('Erreur de communication.');
+                console.error('Erreur:', error);
+            });
+        });
+
+        // Initialisation
+        updateCanvasTransform();
+    </script>
+
+</body>
+</html>
