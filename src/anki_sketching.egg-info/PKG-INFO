@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: anki_sketching
+Version: 0.0.1
+Summary: A web interface for sketching Anki card relationships.
+Requires-Python: >=3.8
