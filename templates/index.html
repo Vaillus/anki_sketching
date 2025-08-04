@@ -115,6 +115,7 @@
         </form>
         <div style="margin-top: 10px;">
             <button id="save-positions" type="button">💾 Sauvegarder positions</button>
+            <button id="clear-canvas" type="button" style="margin-left: 10px;">🗑️ Vider le canvas</button>
         </div>
     </div>
 
@@ -385,6 +386,17 @@
 
         // Gestion du zoom avec la molette
         canvasContainer.addEventListener('wheel', (e) => {
+            // Vérifie si la souris est au-dessus d'une carte
+            const target = e.target;
+            const cardBox = target.closest('.card-box');
+            
+            if (cardBox) {
+                // Si on est sur une carte, laisse le comportement de scroll normal de la carte
+                // Ne pas preventDefault() pour permettre le scroll du contenu de la carte
+                return;
+            }
+            
+            // Sinon, zoom sur le canvas
             e.preventDefault();
             const rect = canvasContainer.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -490,13 +502,34 @@
             });
         }
 
+        // Fonction pour calculer les limites des cartes existantes
+        function getExistingCardsBounds() {
+            if (cards.length === 0) {
+                return { minX: 0, maxY: 0 };
+            }
+            
+            let minX = Infinity;
+            let maxY = -Infinity;
+            
+            cards.forEach(card => {
+                const left = parseInt(card.style.left) || 0;
+                const top = parseInt(card.style.top) || 0;
+                const height = card.offsetHeight || 220; // hauteur par défaut
+                
+                minX = Math.min(minX, left);
+                maxY = Math.max(maxY, top + height);
+            });
+            
+            return { minX: minX === Infinity ? 0 : minX, maxY };
+        }
+
         // Fonction pour importer un paquet
         function importDeck(deckName) {
             currentDeck = deckName; // Met à jour le paquet actuel
             
-            // Vide le canvas
-            canvas.innerHTML = '';
-            cards = [];
+            // Ne vide PAS le canvas - garde les cartes existantes
+            // canvas.innerHTML = '';
+            // cards = [];
             
             fetch('/import_deck', {
                 method: 'POST',
@@ -514,20 +547,25 @@
                     return;
                 }
 
+                // Calcule la position de départ pour les nouvelles cartes
+                const bounds = getExistingCardsBounds();
+                const startX = bounds.minX;
+                const startY = bounds.maxY + 20; // 20px d'espacement
+
                 data.forEach((card, index) => {
                     const cardBox = document.createElement('div');
                     cardBox.className = 'card-box';
                     cardBox.setAttribute('data-card-id', card.card_id);
                     
-                    // Position en grille (4 par rangée) par défaut
+                    // Position en grille (4 par rangée) à partir de la position calculée
                     const cardsPerRow = 4;
                     const cardWidth = 320;
                     const cardHeight = 220;
                     const col = index % cardsPerRow;
                     const row = Math.floor(index / cardsPerRow);
                     
-                    cardBox.style.left = (col * cardWidth) + 'px';
-                    cardBox.style.top = (row * cardHeight) + 'px';
+                    cardBox.style.left = (startX + col * cardWidth) + 'px';
+                    cardBox.style.top = (startY + row * cardHeight) + 'px';
                     cardBox.style.zIndex = ++cardCounter;
                     
                     let content = '';
@@ -545,8 +583,11 @@
                 });
                 
                 // Charge les positions sauvegardées après avoir créé toutes les cartes
+                // Seulement si c'est le premier import (canvas vide au départ)
                 setTimeout(() => {
-                    loadCardPositions();
+                    if (bounds.maxY === 0) { // Si c'était le premier import
+                        loadCardPositions();
+                    }
                 }, 200);
                 
                 // Applique la répulsion après avoir chargé toutes les cartes (si pas de positions sauvées)
@@ -567,6 +608,16 @@
 
         // Gestionnaire pour le bouton de sauvegarde
         document.getElementById('save-positions').addEventListener('click', saveCardPositions);
+
+        // Gestionnaire pour le bouton vider le canvas
+        document.getElementById('clear-canvas').addEventListener('click', function() {
+            if (confirm('Voulez-vous vraiment vider le canvas ? Toutes les cartes seront supprimées.')) {
+                canvas.innerHTML = '';
+                cards = [];
+                currentDeck = '';
+                cardCounter = 0;
+            }
+        });
 
         // Initialisation
         updateCanvasTransform();
