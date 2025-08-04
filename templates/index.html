@@ -189,7 +189,7 @@
             border: 2px dashed #2196F3;
             border-radius: 12px;
             background-color: rgba(33, 150, 243, 0.1);
-            z-index: 5;
+            z-index: 1;
             pointer-events: auto;
             cursor: move;
             transition: all 0.3s ease;
@@ -473,9 +473,8 @@
                 name: groupName
             });
             
-            cardIds.forEach(cardId => {
-                cardGroups.set(cardId, groupId);
-            });
+            // Met à jour le z-index du groupe pour qu'il soit juste en dessous de ses cartes
+            updateGroupZIndex(groupId);
             
             // Rend le groupe déplaçable
             makeGroupDraggable(groupElement, groupId);
@@ -543,10 +542,33 @@
             }
         }
         
+        // Met à jour le z-index d'un groupe pour qu'il soit juste en dessous de ses cartes
+        function updateGroupZIndex(groupId) {
+            const group = groups.get(groupId);
+            if (!group) return;
+            
+            let minCardZIndex = Infinity;
+            
+            // Trouve le z-index le plus bas parmi les cartes du groupe
+            group.cards.forEach(cardId => {
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    const cardZIndex = parseInt(cardElement.style.zIndex) || 1;
+                    minCardZIndex = Math.min(minCardZIndex, cardZIndex);
+                }
+            });
+            
+            // Le groupe a un z-index juste en dessous de sa carte la plus basse
+            if (group.element) {
+                group.element.style.zIndex = Math.max(1, minCardZIndex - 1);
+            }
+        }
+        
         // Met à jour tous les groupes quand les cartes bougent
         function updateAllGroups() {
             groups.forEach((group, groupId) => {
                 updateGroupBounds(groupId);
+                updateGroupZIndex(groupId);
             });
         }
         
@@ -604,7 +626,7 @@
                     }
                     
                     // Amène le groupe au premier plan et ajoute la classe dragging
-                    groupElement.style.zIndex = ++cardCounter;
+                    // Le groupe garde son z-index relatif à ses cartes
                     groupElement.classList.add('dragging');
                     
                     e.preventDefault();
@@ -1165,7 +1187,7 @@
                     startY = e.clientY;
                     startLeft = parseInt(element.style.left) || 0;
                     startTop = parseInt(element.style.top) || 0;
-                    element.style.zIndex = ++cardCounter;
+                    element.style.zIndex = Math.max(++cardCounter, 10); // Toujours au moins 10 pour être au-dessus des groupes
                     
                     // Désactive temporairement les transitions pendant le drag
                     element.style.transition = 'none';
@@ -1216,6 +1238,13 @@
                             repelOverlappingCards();
                             updateAllGroups(); // Met à jour les groupes après le déplacement
                         }, 50);
+                    } else {
+                        // Même si la carte n'a pas bougé, met à jour le z-index du groupe si elle en fait partie
+                        const cardId = element.getAttribute('data-card-id');
+                        if (cardGroups.has(cardId)) {
+                            const groupId = cardGroups.get(cardId);
+                            updateGroupZIndex(groupId);
+                        }
                     }
                 }
             });
