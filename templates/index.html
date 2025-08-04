@@ -222,6 +222,74 @@
         .group-label.selected {
             background-color: #FF5722;
         }
+        
+        .anchor-point {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.2s ease;
+            display: none;
+        }
+        
+        .anchor-point.bottom {
+            background-color: #4CAF50; /* Vert pour point de départ */
+        }
+        
+        .anchor-point.top {
+            background-color: #FF5722; /* Rouge pour point d'arrivée */
+        }
+        
+        .anchor-point.left {
+            background-color: #FF5722; /* Rouge pour point d'arrivée */
+        }
+        
+        .anchor-point.right {
+            background-color: #4CAF50; /* Vert pour point de départ */
+        }
+        
+        .anchor-point:hover {
+            background-color: #FF5722;
+            transform: scale(1.2);
+        }
+        
+        .anchor-point.top {
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .anchor-point.bottom {
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .anchor-point.left {
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .anchor-point.right {
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .anchor-point.creating {
+            background-color: #FF5722;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.3); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -291,6 +359,13 @@
         let groups = new Map(); // Map: groupId -> { cards: Set, element: HTMLElement, name: string }
         let cardGroups = new Map(); // Map: cardId -> groupId
         let groupCounter = 0; // Compteur pour les IDs de groupes
+        
+        // Variables pour les points d'ancrage et flèches
+        let anchorPoints = new Map(); // Map: elementId -> { top: HTMLElement, bottom: HTMLElement }
+        let isCreatingArrow = false; // Mode création de flèche
+        let arrowStart = null; // Point de départ de la flèche
+        let arrows = new Map(); // Map: arrowId -> { from: elementId, to: elementId, element: HTMLElement }
+        let arrowCounter = 0; // Compteur pour les IDs de flèches
 
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvas-container');
@@ -479,6 +554,9 @@
             // Rend le groupe déplaçable
             makeGroupDraggable(groupElement, groupId);
             
+            // Crée les points d'ancrage pour le groupe
+            createAnchorPoints(groupElement, groupId);
+            
             console.log(`Groupe "${groupName}" créé avec ${cardIds.length} cartes`);
             return groupId;
         }
@@ -516,6 +594,9 @@
             if (group.element && group.element.parentNode) {
                 group.element.parentNode.removeChild(group.element);
             }
+            
+            // Supprime les points d'ancrage du groupe
+            removeAnchorPoints(groupId);
             
             // Supprime de la structure de données
             groups.delete(groupId);
@@ -570,6 +651,16 @@
                 updateGroupBounds(groupId);
                 updateGroupZIndex(groupId);
             });
+            
+            // Met à jour toutes les flèches
+            updateAllArrows();
+        }
+        
+        // Met à jour toutes les flèches
+        function updateAllArrows() {
+            arrows.forEach((arrow, arrowId) => {
+                updateArrowPosition(arrowId);
+            });
         }
         
         // Affiche le menu contextuel pour un groupe
@@ -580,6 +671,278 @@
             if (group) {
                 showContextMenu(x, y, { isGroup: true, groupId: groupId, element: group.element });
             }
+        }
+        
+        // ===== SYSTÈME DE POINTS D'ANCRAGE =====
+        
+        // Crée les points d'ancrage pour un élément (carte ou groupe)
+        function createAnchorPoints(element, elementId) {
+            // Supprime les points d'ancrage existants
+            removeAnchorPoints(elementId);
+            
+            // Crée le point d'ancrage du haut (entrée)
+            const topAnchor = document.createElement('div');
+            topAnchor.className = 'anchor-point top';
+            topAnchor.setAttribute('data-anchor', 'top');
+            topAnchor.setAttribute('data-element-id', elementId);
+            
+            // Crée le point d'ancrage du bas (sortie)
+            const bottomAnchor = document.createElement('div');
+            bottomAnchor.className = 'anchor-point bottom';
+            bottomAnchor.setAttribute('data-anchor', 'bottom');
+            bottomAnchor.setAttribute('data-element-id', elementId);
+            
+            // Crée le point d'ancrage de gauche (entrée)
+            const leftAnchor = document.createElement('div');
+            leftAnchor.className = 'anchor-point left';
+            leftAnchor.setAttribute('data-anchor', 'left');
+            leftAnchor.setAttribute('data-element-id', elementId);
+            
+            // Crée le point d'ancrage de droite (sortie)
+            const rightAnchor = document.createElement('div');
+            rightAnchor.className = 'anchor-point right';
+            rightAnchor.setAttribute('data-anchor', 'right');
+            rightAnchor.setAttribute('data-element-id', elementId);
+            
+            // Ajoute les points d'ancrage à l'élément
+            element.appendChild(topAnchor);
+            element.appendChild(bottomAnchor);
+            element.appendChild(leftAnchor);
+            element.appendChild(rightAnchor);
+            
+            // Stocke les références
+            anchorPoints.set(elementId, {
+                top: topAnchor,
+                bottom: bottomAnchor,
+                left: leftAnchor,
+                right: rightAnchor
+            });
+            
+            // Ajoute les gestionnaires d'événements
+            addAnchorPointEventListeners(topAnchor, bottomAnchor, leftAnchor, rightAnchor, elementId);
+        }
+        
+        // Supprime les points d'ancrage d'un élément
+        function removeAnchorPoints(elementId) {
+            const anchors = anchorPoints.get(elementId);
+            if (anchors) {
+                if (anchors.top && anchors.top.parentNode) {
+                    anchors.top.parentNode.removeChild(anchors.top);
+                }
+                if (anchors.bottom && anchors.bottom.parentNode) {
+                    anchors.bottom.parentNode.removeChild(anchors.bottom);
+                }
+                if (anchors.left && anchors.left.parentNode) {
+                    anchors.left.parentNode.removeChild(anchors.left);
+                }
+                if (anchors.right && anchors.right.parentNode) {
+                    anchors.right.parentNode.removeChild(anchors.right);
+                }
+                anchorPoints.delete(elementId);
+            }
+        }
+        
+        // Ajoute les gestionnaires d'événements aux points d'ancrage
+        function addAnchorPointEventListeners(topAnchor, bottomAnchor, leftAnchor, rightAnchor, elementId) {
+            // Gestionnaire pour le point du haut (point d'arrivée)
+            topAnchor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isCreatingArrow && arrowStart && arrowStart.elementId !== elementId) {
+                    // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
+                    createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'top');
+                    endArrowCreation();
+                }
+            });
+            
+            // Gestionnaire pour le point du bas (point de départ)
+            bottomAnchor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!isCreatingArrow) {
+                    // Commence la création d'une flèche depuis ce point de départ
+                    startArrowCreation(elementId, 'bottom');
+                } else if (arrowStart && arrowStart.elementId !== elementId) {
+                    // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
+                    createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'top');
+                    endArrowCreation();
+                }
+            });
+            
+            // Gestionnaire pour le point de gauche (point d'arrivée)
+            leftAnchor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isCreatingArrow && arrowStart && arrowStart.elementId !== elementId) {
+                    // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
+                    createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'left');
+                    endArrowCreation();
+                }
+            });
+            
+            // Gestionnaire pour le point de droite (point de départ)
+            rightAnchor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!isCreatingArrow) {
+                    // Commence la création d'une flèche depuis ce point de départ
+                    startArrowCreation(elementId, 'right');
+                } else if (arrowStart && arrowStart.elementId !== elementId) {
+                    // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
+                    createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'left');
+                    endArrowCreation();
+                }
+            });
+        }
+        
+        // Commence la création d'une flèche
+        function startArrowCreation(elementId, anchorType) {
+            isCreatingArrow = true;
+            arrowStart = { elementId, anchorType };
+            
+            // Ajoute la classe creating au point d'ancrage de départ
+            const anchors = anchorPoints.get(elementId);
+            if (anchors) {
+                const startAnchor = anchorType === 'top' ? anchors.top : anchors.bottom;
+                startAnchor.classList.add('creating');
+            }
+            
+            console.log(`Création de flèche commencée depuis ${elementId} (${anchorType})`);
+        }
+        
+        // Termine la création d'une flèche
+        function endArrowCreation() {
+            isCreatingArrow = false;
+            arrowStart = null;
+            
+            // Retire la classe creating de tous les points d'ancrage
+            document.querySelectorAll('.anchor-point.creating').forEach(anchor => {
+                anchor.classList.remove('creating');
+            });
+            
+            console.log('Création de flèche terminée');
+        }
+        
+        // ===== SYSTÈME DE FLÈCHES =====
+        
+        // Crée une flèche entre deux éléments
+        function createArrow(fromElementId, toElementId, fromAnchorType, toAnchorType) {
+            const arrowId = `arrow_${++arrowCounter}`;
+            
+            // Crée l'élément SVG pour la flèche
+            const arrowElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            arrowElement.setAttribute('data-arrow-id', arrowId);
+            arrowElement.style.position = 'absolute';
+            arrowElement.style.zIndex = '50';
+            arrowElement.style.pointerEvents = 'none';
+            
+            // Ajoute l'élément SVG au canvas
+            canvas.appendChild(arrowElement);
+            
+            // Stocke les informations de la flèche
+            arrows.set(arrowId, {
+                from: fromElementId,
+                to: toElementId,
+                fromAnchor: fromAnchorType,
+                toAnchor: toAnchorType,
+                element: arrowElement
+            });
+            
+            // Met à jour la position de la flèche
+            updateArrowPosition(arrowId);
+            
+            console.log(`Flèche créée: ${fromElementId} (${fromAnchorType}) → ${toElementId} (${toAnchorType})`);
+            return arrowId;
+        }
+        
+        // Met à jour la position d'une flèche
+        function updateArrowPosition(arrowId) {
+            const arrow = arrows.get(arrowId);
+            if (!arrow) return;
+            
+            const fromElement = document.querySelector(`[data-card-id="${arrow.from}"]`) || 
+                              document.querySelector(`[data-group-id="${arrow.from}"]`);
+            const toElement = document.querySelector(`[data-card-id="${arrow.to}"]`) || 
+                            document.querySelector(`[data-group-id="${arrow.to}"]`);
+            
+            if (!fromElement || !toElement) return;
+            
+            // Calcule les positions des points d'ancrage
+            const fromPos = getAnchorPosition(fromElement, arrow.fromAnchor);
+            const toPos = getAnchorPosition(toElement, arrow.toAnchor);
+            
+            if (!fromPos || !toPos) return;
+            
+            // Calcule les dimensions du SVG
+            const minX = Math.min(fromPos.x, toPos.x);
+            const minY = Math.min(fromPos.y, toPos.y);
+            const width = Math.abs(toPos.x - fromPos.x);
+            const height = Math.abs(toPos.y - fromPos.y);
+            
+            // Configure le SVG
+            arrow.element.setAttribute('width', Math.max(width, 1));
+            arrow.element.setAttribute('height', Math.max(height, 1));
+            arrow.element.style.left = minX + 'px';
+            arrow.element.style.top = minY + 'px';
+            
+            // Crée le chemin de la flèche
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const startX = fromPos.x - minX;
+            const startY = fromPos.y - minY;
+            const endX = toPos.x - minX;
+            const endY = toPos.y - minY;
+            
+            path.setAttribute('d', `M ${startX} ${startY} L ${endX} ${endY}`);
+            path.setAttribute('stroke', '#2196F3');
+            path.setAttribute('stroke-width', '3');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('marker-end', 'url(#arrowhead)');
+            
+            // Ajoute la pointe de flèche
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', 'arrowhead');
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '7');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '3.5');
+            marker.setAttribute('orient', 'auto');
+            
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+            polygon.setAttribute('fill', '#2196F3');
+            
+            marker.appendChild(polygon);
+            defs.appendChild(marker);
+            arrow.element.appendChild(defs);
+            arrow.element.appendChild(path);
+        }
+        
+        // Obtient la position d'un point d'ancrage
+        function getAnchorPosition(element, anchorType) {
+            const rect = element.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            let x, y;
+            
+            switch (anchorType) {
+                case 'top':
+                    x = rect.left - canvasRect.left + rect.width / 2;
+                    y = rect.top - canvasRect.top;
+                    break;
+                case 'bottom':
+                    x = rect.left - canvasRect.left + rect.width / 2;
+                    y = rect.top - canvasRect.top + rect.height;
+                    break;
+                case 'left':
+                    x = rect.left - canvasRect.left;
+                    y = rect.top - canvasRect.top + rect.height / 2;
+                    break;
+                case 'right':
+                    x = rect.left - canvasRect.left + rect.width;
+                    y = rect.top - canvasRect.top + rect.height / 2;
+                    break;
+                default:
+                    return null;
+            }
+            
+            return { x, y };
         }
         
         // Rend un groupe déplaçable
@@ -637,6 +1000,29 @@
             // Empêche le menu contextuel par défaut du navigateur
             groupElement.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
+            });
+            
+            // Gestion des points d'ancrage au survol
+            groupElement.addEventListener('mouseenter', () => {
+                // Affiche les points d'ancrage
+                const anchors = anchorPoints.get(groupId);
+                if (anchors) {
+                    anchors.top.style.display = 'block';
+                    anchors.bottom.style.display = 'block';
+                    anchors.left.style.display = 'block';
+                    anchors.right.style.display = 'block';
+                }
+            });
+            
+            groupElement.addEventListener('mouseleave', () => {
+                // Cache les points d'ancrage
+                const anchors = anchorPoints.get(groupId);
+                if (anchors) {
+                    anchors.top.style.display = 'none';
+                    anchors.bottom.style.display = 'none';
+                    anchors.left.style.display = 'none';
+                    anchors.right.style.display = 'none';
+                }
             });
 
             document.addEventListener('mousemove', (e) => {
@@ -1208,6 +1594,32 @@
             // Empêche le menu contextuel par défaut du navigateur
             element.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
+            });
+            
+            // Gestion des points d'ancrage au survol
+            element.addEventListener('mouseenter', () => {
+                const cardId = element.getAttribute('data-card-id');
+                createAnchorPoints(element, cardId);
+                
+                // Affiche les points d'ancrage
+                const anchors = anchorPoints.get(cardId);
+                if (anchors) {
+                    anchors.top.style.display = 'block';
+                    anchors.bottom.style.display = 'block';
+                    anchors.left.style.display = 'block';
+                    anchors.right.style.display = 'block';
+                }
+            });
+            
+            element.addEventListener('mouseleave', () => {
+                const cardId = element.getAttribute('data-card-id');
+                const anchors = anchorPoints.get(cardId);
+                if (anchors) {
+                    anchors.top.style.display = 'none';
+                    anchors.bottom.style.display = 'none';
+                    anchors.left.style.display = 'none';
+                    anchors.right.style.display = 'none';
+                }
             });
 
             document.addEventListener('mousemove', (e) => {
