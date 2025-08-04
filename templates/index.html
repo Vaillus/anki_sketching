@@ -113,6 +113,9 @@
             </select>
             <button type="submit">Importer</button>
         </form>
+        <div style="margin-top: 10px;">
+            <button id="save-positions" type="button">💾 Sauvegarder positions</button>
+        </div>
     </div>
 
     <div id="zoom-controls">
@@ -139,12 +142,115 @@
         let lastMouseX = 0, lastMouseY = 0;
         let cardCounter = 0;
         let cards = []; // Tableau pour stocker toutes les cartes
+        let currentDeck = ''; // Nom du paquet actuellement chargé
 
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvas-container');
         const zoomLevel = document.getElementById('zoom-level');
         const zoomInfo = document.getElementById('zoom-info');
         const position = document.getElementById('position');
+
+        // Fonction pour sauvegarder les positions des cartes
+        function saveCardPositions() {
+            if (!currentDeck) {
+                alert('Aucun paquet chargé à sauvegarder.');
+                return;
+            }
+
+            const positions = {};
+            cards.forEach(card => {
+                const cardId = card.getAttribute('data-card-id');
+                positions[cardId] = {
+                    left: parseInt(card.style.left) || 0,
+                    top: parseInt(card.style.top) || 0,
+                    zIndex: parseInt(card.style.zIndex) || 1
+                };
+            });
+
+            const saveData = {
+                deck: currentDeck,
+                canvas: { x: canvasX, y: canvasY, zoom: zoom },
+                cards: positions
+            };
+
+            fetch('/save_positions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(saveData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Positions sauvegardées !');
+                } else {
+                    alert('❌ Erreur lors de la sauvegarde: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ Erreur de communication: ' + error);
+            });
+        }
+
+        // Fonction pour charger les positions des cartes
+        function loadCardPositions() {
+            if (!currentDeck) return;
+
+            fetch('/load_positions')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.positions.deck === currentDeck) {
+                    const savedData = data.positions;
+                    
+                    // Restaure la position et le zoom du canvas
+                    if (savedData.canvas) {
+                        canvasX = savedData.canvas.x || 0;
+                        canvasY = savedData.canvas.y || 0;
+                        zoom = savedData.canvas.zoom || 1;
+                        updateCanvasTransform();
+                    }
+
+                    // Restaure les positions des cartes
+                    if (savedData.cards) {
+                        cards.forEach(card => {
+                            const cardId = card.getAttribute('data-card-id');
+                            const savedPos = savedData.cards[cardId];
+                            if (savedPos) {
+                                card.style.left = savedPos.left + 'px';
+                                card.style.top = savedPos.top + 'px';
+                                card.style.zIndex = savedPos.zIndex || 1;
+                                cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
+                            }
+                        });
+                    }
+
+                    console.log('Positions restaurées pour le paquet:', currentDeck);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des positions:', error);
+            });
+        }
+
+        // Fonction pour charger automatiquement le dernier paquet sauvegardé
+        function loadLastDeck() {
+            fetch('/load_positions')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.positions.deck) {
+                    const savedDeck = data.positions.deck;
+                    // Met le select sur le bon paquet
+                    const deckSelect = document.getElementById('deck-name');
+                    deckSelect.value = savedDeck;
+                    
+                    // Importe automatiquement le paquet
+                    currentDeck = savedDeck;
+                    importDeck(savedDeck);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement du dernier paquet:', error);
+            });
+        }
 
         // Fonction pour vérifier si deux rectangles se chevauchent
         function isOverlapping(rect1, rect2) {
@@ -384,10 +490,13 @@
             });
         }
 
-        // Gestion du formulaire d'import
-        document.getElementById('import-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const deckName = document.getElementById('deck-name').value;
+        // Fonction pour importer un paquet
+        function importDeck(deckName) {
+            currentDeck = deckName; // Met à jour le paquet actuel
+            
+            // Vide le canvas
+            canvas.innerHTML = '';
+            cards = [];
             
             fetch('/import_deck', {
                 method: 'POST',
@@ -410,7 +519,7 @@
                     cardBox.className = 'card-box';
                     cardBox.setAttribute('data-card-id', card.card_id);
                     
-                    // Position en grille (4 par rangée)
+                    // Position en grille (4 par rangée) par défaut
                     const cardsPerRow = 4;
                     const cardWidth = 320;
                     const cardHeight = 220;
@@ -435,17 +544,37 @@
                     makeDraggable(cardBox);
                 });
                 
-                // Applique la répulsion après avoir chargé toutes les cartes
-                setTimeout(() => repelOverlappingCards(), 100);
+                // Charge les positions sauvegardées après avoir créé toutes les cartes
+                setTimeout(() => {
+                    loadCardPositions();
+                }, 200);
+                
+                // Applique la répulsion après avoir chargé toutes les cartes (si pas de positions sauvées)
+                setTimeout(() => physicsRepulsion(), 300);
             })
             .catch(error => {
                 alert('Erreur de communication.');
                 console.error('Erreur:', error);
             });
+        }
+
+        // Gestion du formulaire d'import
+        document.getElementById('import-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const deckName = document.getElementById('deck-name').value;
+            importDeck(deckName);
         });
+
+        // Gestionnaire pour le bouton de sauvegarde
+        document.getElementById('save-positions').addEventListener('click', saveCardPositions);
 
         // Initialisation
         updateCanvasTransform();
+        
+        // Charge automatiquement le dernier paquet sauvegardé au chargement de la page
+        window.addEventListener('load', () => {
+            loadLastDeck();
+        });
     </script>
 
 </body>
