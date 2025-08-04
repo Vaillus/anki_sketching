@@ -2,8 +2,13 @@ from flask import Flask, render_template, request, jsonify
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.anki_interface.get_card_information import get_card_information
 from src.anki_interface.get_all_decks import get_all_decks
+import json
+import os
 
 app = Flask(__name__)
+
+# Fichier pour sauvegarder les positions des cartes
+POSITIONS_FILE = 'card_positions.json'
 
 @app.route('/')
 def index():
@@ -16,6 +21,28 @@ def index():
             if deck == parent_deck or deck.startswith(f"{parent_deck}::")
         ]
     return render_template('index.html', decks=sorted(dessin_decks))
+
+@app.route('/save_positions', methods=['POST'])
+def save_positions():
+    try:
+        positions_data = request.get_json()
+        with open(POSITIONS_FILE, 'w') as f:
+            json.dump(positions_data, f, indent=2)
+        return jsonify({"success": True, "message": "Positions sauvegardées"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/load_positions', methods=['GET'])
+def load_positions():
+    try:
+        if os.path.exists(POSITIONS_FILE):
+            with open(POSITIONS_FILE, 'r') as f:
+                positions_data = json.load(f)
+            return jsonify({"success": True, "positions": positions_data})
+        else:
+            return jsonify({"success": True, "positions": {}})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/import_deck', methods=['POST'])
 def import_deck():
