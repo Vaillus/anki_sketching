@@ -44,6 +44,27 @@ def load_positions():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/get_cards_by_ids', methods=['POST'])
+def get_cards_by_ids():
+    try:
+        card_ids = request.get_json().get('card_ids', [])
+        if not card_ids:
+            return jsonify({"success": True, "cards": []})
+        
+        cards_data = []
+        for card_id in card_ids:
+            card_info = get_card_information(int(card_id), 'static/images')
+            if card_info:
+                cards_data.append({
+                    'card_id': card_id,
+                    'texts': card_info['texts'],
+                    'images': [f'/static/images/{os.path.basename(img)}' for img in card_info['images']]
+                })
+        
+        return jsonify({"success": True, "cards": cards_data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/import_deck', methods=['POST'])
 def import_deck():
     deck_name = request.form.get('deck_name')

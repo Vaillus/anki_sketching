@@ -87,7 +87,7 @@
         
         .card-box {
             position: absolute;
-            border: 1px solid #ccc;
+            border: 3px solid #ccc;
             border-radius: 8px;
             padding: 1em;
             width: 300px;
@@ -97,7 +97,12 @@
             cursor: move;
             z-index: 10;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: left 0.3s ease-out, top 0.3s ease-out;
+            transition: left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease;
+        }
+        
+        .card-box.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
         }
         
         .card-box:hover {
@@ -124,6 +129,98 @@
             -moz-user-select: auto;
             -ms-user-select: auto;
             user-select: auto;
+        }
+        
+        #context-menu {
+            position: fixed;
+            z-index: 10001;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            padding: 0;
+            min-width: 150px;
+            display: none;
+        }
+        
+        #context-menu .menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        
+        #context-menu .menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        #context-menu .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        #selection-toolbar {
+            position: fixed;
+            bottom: 60px;
+            left: 10px;
+            z-index: 10000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 1px solid #ccc;
+            display: none;
+        }
+        
+        #selection-toolbar button {
+            margin-right: 10px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #selection-toolbar button:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .group-box {
+            position: absolute;
+            border: 2px dashed #2196F3;
+            border-radius: 12px;
+            background-color: rgba(33, 150, 243, 0.1);
+            z-index: 5;
+            pointer-events: auto;
+            cursor: move;
+            transition: all 0.3s ease;
+        }
+        
+        .group-box.selected {
+            border-color: #FF5722;
+            background-color: rgba(255, 87, 34, 0.1);
+        }
+        
+        .group-box.dragging {
+            border-color: #FF9800;
+            background-color: rgba(255, 152, 0, 0.2);
+        }
+        
+        .group-label {
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background-color: #2196F3;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        .group-label.selected {
+            background-color: #FF5722;
         }
     </style>
 </head>
@@ -163,6 +260,20 @@
         Position: <span id="position">0, 0</span> | Zoom: <span id="zoom-info">100%</span>
     </div>
 
+    <!-- Menu contextuel -->
+    <div id="context-menu">
+        <div class="menu-item" id="context-deselect">Désélectionner</div>
+        <div class="menu-item" id="context-delete">Supprimer la carte</div>
+        <div class="menu-item" id="context-bring-front">Mettre au premier plan</div>
+    </div>
+
+    <!-- Barre d'outils de sélection -->
+    <div id="selection-toolbar">
+        <span id="selection-count">0 carte(s) sélectionnée(s)</span>
+        <button id="group-selected">🔗 Grouper</button>
+        <button id="deselect-all">❌ Tout désélectionner</button>
+    </div>
+
     <script>
         // Variables globales pour le canvas
         let canvasX = 0, canvasY = 0, zoom = 1;
@@ -171,21 +282,400 @@
         let cardCounter = 0;
         let cards = []; // Tableau pour stocker toutes les cartes
         let currentDeck = ''; // Nom du paquet actuellement chargé
+        
+        // Variables pour la sélection
+        let selectedCards = new Set(); // Cartes sélectionnées
+        let lastSelectedCard = null; // Dernière carte sélectionnée pour la sélection multiple
+        
+        // Variables pour les groupes
+        let groups = new Map(); // Map: groupId -> { cards: Set, element: HTMLElement, name: string }
+        let cardGroups = new Map(); // Map: cardId -> groupId
+        let groupCounter = 0; // Compteur pour les IDs de groupes
 
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvas-container');
         const zoomLevel = document.getElementById('zoom-level');
         const zoomInfo = document.getElementById('zoom-info');
         const position = document.getElementById('position');
+        const contextMenu = document.getElementById('context-menu');
+        const selectionToolbar = document.getElementById('selection-toolbar');
+        const selectionCount = document.getElementById('selection-count');
+
+        // ===== SYSTÈME DE SÉLECTION =====
+        
+        // Met à jour l'affichage de la sélection
+        function updateSelectionDisplay() {
+            const count = selectedCards.size;
+            selectionCount.textContent = `${count} carte(s) sélectionnée(s)`;
+            
+            if (count > 0) {
+                selectionToolbar.style.display = 'block';
+            } else {
+                selectionToolbar.style.display = 'none';
+            }
+        }
+        
+        // Sélectionne ou désélectionne une carte
+        function toggleCardSelection(cardElement, forceState = null) {
+            const cardId = cardElement.getAttribute('data-card-id');
+            
+            if (forceState === true || (forceState === null && !selectedCards.has(cardId))) {
+                // Sélectionner
+                selectedCards.add(cardId);
+                cardElement.classList.add('selected');
+                lastSelectedCard = cardElement;
+            } else {
+                // Désélectionner
+                selectedCards.delete(cardId);
+                cardElement.classList.remove('selected');
+                if (lastSelectedCard === cardElement) {
+                    lastSelectedCard = null;
+                }
+            }
+            
+            updateSelectionDisplay();
+        }
+        
+        // Désélectionne toutes les cartes
+        function deselectAllCards() {
+            selectedCards.forEach(cardId => {
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    cardElement.classList.remove('selected');
+                }
+            });
+            selectedCards.clear();
+            lastSelectedCard = null;
+            updateSelectionDisplay();
+        }
+        
+        // Gère la sélection multiple avec Maj
+        function handleCardClick(cardElement, event) {
+            if (event.shiftKey && lastSelectedCard) {
+                // Sélection multiple : sélectionne toutes les cartes entre la dernière et celle-ci
+                const allCards = Array.from(document.querySelectorAll('.card-box'));
+                const lastIndex = allCards.indexOf(lastSelectedCard);
+                const currentIndex = allCards.indexOf(cardElement);
+                
+                const startIndex = Math.min(lastIndex, currentIndex);
+                const endIndex = Math.max(lastIndex, currentIndex);
+                
+                for (let i = startIndex; i <= endIndex; i++) {
+                    toggleCardSelection(allCards[i], true);
+                }
+            } else if (event.ctrlKey || event.metaKey) {
+                // Ajout/suppression à la sélection avec Ctrl/Cmd
+                toggleCardSelection(cardElement);
+            } else {
+                // Sélection simple : désélectionne tout et sélectionne seulement cette carte
+                deselectAllCards();
+                toggleCardSelection(cardElement, true);
+            }
+        }
+        
+        // Affiche le menu contextuel
+        function showContextMenu(x, y, targetCard) {
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.style.display = 'block';
+            contextMenu.targetCard = targetCard;
+        }
+        
+        // Cache le menu contextuel
+        function hideContextMenu() {
+            contextMenu.style.display = 'none';
+            contextMenu.targetCard = null;
+        }
+
+        // ===== SYSTÈME DE GROUPES =====
+        
+        // Calcule les limites (bounds) d'un groupe basé sur ses cartes
+        function calculateGroupBounds(cardIds) {
+            if (cardIds.length === 0) return null;
+            
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            
+            cardIds.forEach(cardId => {
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    const left = parseInt(cardElement.style.left) || 0;
+                    const top = parseInt(cardElement.style.top) || 0;
+                    
+                    // Utilise les mêmes dimensions fixes que le reste du système
+                    const width = 300; // Largeur fixe des cartes (CSS)
+                    const height = 200; // Hauteur fixe des cartes (CSS)
+                    
+                    minX = Math.min(minX, left);
+                    minY = Math.min(minY, top);
+                    maxX = Math.max(maxX, left + width);
+                    maxY = Math.max(maxY, top + height);
+                }
+            });
+            
+            // Padding plus généreux pour éviter que la bordure passe sous les cartes
+            const padding = 50;
+            return {
+                left: minX - padding,
+                top: minY - padding,
+                width: (maxX - minX) + (padding * 2),
+                height: (maxY - minY) + (padding * 2)
+            };
+        }
+        
+        // Crée un nouveau groupe
+        function createGroup(cardIds, name = null) {
+            if (cardIds.length < 2) {
+                alert('Un groupe doit contenir au moins 2 cartes');
+                return null;
+            }
+            
+            const groupId = `group_${++groupCounter}`;
+            const groupName = name || `Groupe ${groupCounter}`;
+            
+            // Retire les cartes de leurs groupes existants
+            cardIds.forEach(cardId => {
+                if (cardGroups.has(cardId)) {
+                    removeCardFromGroup(cardId);
+                }
+            });
+            
+            // Calcule les dimensions du groupe
+            const bounds = calculateGroupBounds(cardIds);
+            if (!bounds) return null;
+            
+            // Crée l'élément visuel du groupe
+            const groupElement = document.createElement('div');
+            groupElement.className = 'group-box';
+            groupElement.setAttribute('data-group-id', groupId);
+            groupElement.style.left = bounds.left + 'px';
+            groupElement.style.top = bounds.top + 'px';
+            groupElement.style.width = bounds.width + 'px';
+            groupElement.style.height = bounds.height + 'px';
+            
+            // Ajoute le label du groupe
+            const label = document.createElement('div');
+            label.className = 'group-label';
+            label.textContent = groupName;
+            label.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showGroupContextMenu(e.clientX, e.clientY, groupId);
+            });
+            groupElement.appendChild(label);
+            
+            // Ajoute le groupe au canvas
+            canvas.appendChild(groupElement);
+            
+            // Met à jour les structures de données
+            const cardIdSet = new Set(cardIds);
+            groups.set(groupId, {
+                cards: cardIdSet,
+                element: groupElement,
+                name: groupName
+            });
+            
+            cardIds.forEach(cardId => {
+                cardGroups.set(cardId, groupId);
+            });
+            
+            // Rend le groupe déplaçable
+            makeGroupDraggable(groupElement, groupId);
+            
+            console.log(`Groupe "${groupName}" créé avec ${cardIds.length} cartes`);
+            return groupId;
+        }
+        
+        // Met à jour les dimensions et position d'un groupe
+        function updateGroupBounds(groupId) {
+            const group = groups.get(groupId);
+            if (!group) return;
+            
+            const cardIds = Array.from(group.cards);
+            const bounds = calculateGroupBounds(cardIds);
+            
+            if (bounds) {
+                // Vérifie que les nouvelles dimensions sont valides
+                if (bounds.width > 0 && bounds.height > 0) {
+                    group.element.style.left = bounds.left + 'px';
+                    group.element.style.top = bounds.top + 'px';
+                    group.element.style.width = bounds.width + 'px';
+                    group.element.style.height = bounds.height + 'px';
+                }
+            }
+        }
+        
+        // Supprime un groupe
+        function deleteGroup(groupId) {
+            const group = groups.get(groupId);
+            if (!group) return;
+            
+            // Retire les cartes du groupe
+            group.cards.forEach(cardId => {
+                cardGroups.delete(cardId);
+            });
+            
+            // Supprime l'élément visuel
+            if (group.element && group.element.parentNode) {
+                group.element.parentNode.removeChild(group.element);
+            }
+            
+            // Supprime de la structure de données
+            groups.delete(groupId);
+            
+            console.log(`Groupe "${group.name}" supprimé`);
+        }
+        
+        // Retire une carte d'un groupe
+        function removeCardFromGroup(cardId) {
+            const groupId = cardGroups.get(cardId);
+            if (!groupId) return;
+            
+            const group = groups.get(groupId);
+            if (!group) return;
+            
+            group.cards.delete(cardId);
+            cardGroups.delete(cardId);
+            
+            // Si le groupe n'a plus assez de cartes, le supprimer
+            if (group.cards.size < 2) {
+                deleteGroup(groupId);
+            } else {
+                updateGroupBounds(groupId);
+            }
+        }
+        
+        // Met à jour tous les groupes quand les cartes bougent
+        function updateAllGroups() {
+            groups.forEach((group, groupId) => {
+                updateGroupBounds(groupId);
+            });
+        }
+        
+        // Affiche le menu contextuel pour un groupe
+        function showGroupContextMenu(x, y, groupId) {
+            // Pour l'instant, utilisons le même menu que les cartes
+            // Nous pourrions créer un menu spécifique aux groupes plus tard
+            const group = groups.get(groupId);
+            if (group) {
+                showContextMenu(x, y, { isGroup: true, groupId: groupId, element: group.element });
+            }
+        }
+        
+        // Rend un groupe déplaçable
+        function makeGroupDraggable(groupElement, groupId) {
+            let isDragging = false;
+            let startX, startY;
+            let initialCardPositions = new Map(); // Stocke les positions initiales des cartes
+            let hasMoved = false;
+
+            groupElement.addEventListener('mousedown', (e) => {
+                // Gestion du clic droit pour le menu contextuel
+                if (e.button === 2) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showGroupContextMenu(e.clientX, e.clientY, groupId);
+                    return;
+                }
+                
+                // Gestion du clic gauche
+                if (e.button === 0) {
+                    isDragging = true;
+                    hasMoved = false;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    
+                    // Stocke les positions initiales de toutes les cartes du groupe
+                    const group = groups.get(groupId);
+                    if (group) {
+                        group.cards.forEach(cardId => {
+                            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                            if (cardElement) {
+                                initialCardPositions.set(cardId, {
+                                    left: parseInt(cardElement.style.left) || 0,
+                                    top: parseInt(cardElement.style.top) || 0
+                                });
+                            }
+                        });
+                        
+                        // Stocke aussi la position initiale du groupe
+                        initialCardPositions.set('group', {
+                            left: parseInt(groupElement.style.left) || 0,
+                            top: parseInt(groupElement.style.top) || 0
+                        });
+                    }
+                    
+                    // Amène le groupe au premier plan et ajoute la classe dragging
+                    groupElement.style.zIndex = ++cardCounter;
+                    groupElement.classList.add('dragging');
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+
+            // Empêche le menu contextuel par défaut du navigateur
+            groupElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = (e.clientX - startX) / zoom;
+                    const deltaY = (e.clientY - startY) / zoom;
+                    
+                    // Si on bouge de plus de 5px, on considère que c'est un drag
+                    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                        hasMoved = true;
+                    }
+                    
+                    // Déplace toutes les cartes du groupe en utilisant leurs positions initiales
+                    const group = groups.get(groupId);
+                    if (group) {
+                        group.cards.forEach(cardId => {
+                            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                            if (cardElement) {
+                                const initialPos = initialCardPositions.get(cardId);
+                                if (initialPos) {
+                                    cardElement.style.left = (initialPos.left + deltaX) + 'px';
+                                    cardElement.style.top = (initialPos.top + deltaY) + 'px';
+                                }
+                            }
+                        });
+                        
+                        // Déplace le groupe directement avec le même delta (plus rapide que recalculer)
+                        const initialGroupPos = initialCardPositions.get('group');
+                        if (initialGroupPos) {
+                            groupElement.style.left = (initialGroupPos.left + deltaX) + 'px';
+                            groupElement.style.top = (initialGroupPos.top + deltaY) + 'px';
+                        }
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // Retire la classe dragging
+                    groupElement.classList.remove('dragging');
+                    
+                    // Met à jour les bounds du groupe après le déplacement
+                    if (hasMoved) {
+                        setTimeout(() => updateGroupBounds(groupId), 50);
+                    }
+                }
+            });
+        }
 
         // Fonction pour sauvegarder les positions des cartes
         function saveCardPositions() {
-            if (!currentDeck) {
-                alert('Aucun paquet chargé à sauvegarder.');
+            if (cards.length === 0) {
+                alert('Aucune carte à sauvegarder.');
                 return;
             }
 
             const positions = {};
+            const decks = new Set(); // Pour tracker tous les decks présents
+
             cards.forEach(card => {
                 const cardId = card.getAttribute('data-card-id');
                 positions[cardId] = {
@@ -193,12 +683,25 @@
                     top: parseInt(card.style.top) || 0,
                     zIndex: parseInt(card.style.zIndex) || 1
                 };
+                // Essaie de deviner le deck de chaque carte (basé sur le dernier deck importé)
+                decks.add(currentDeck || 'mixed');
+            });
+
+            // Sauvegarde des groupes
+            const groupsData = {};
+            groups.forEach((group, groupId) => {
+                groupsData[groupId] = {
+                    name: group.name,
+                    cards: Array.from(group.cards)
+                };
             });
 
             const saveData = {
-                deck: currentDeck,
+                deck: currentDeck || 'mixed', // Garde la compatibilité avec l'ancien format
+                decks: Array.from(decks), // Nouvelle info : tous les decks présents
                 canvas: { x: canvasX, y: canvasY, zoom: zoom },
-                cards: positions
+                cards: positions,
+                groups: groupsData // Nouveau : sauvegarde des groupes
             };
 
             fetch('/save_positions', {
@@ -209,7 +712,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('✅ Positions sauvegardées !');
+                    alert('✅ Positions et groupes sauvegardés !');
                 } else {
                     alert('❌ Erreur lors de la sauvegarde: ' + data.error);
                 }
@@ -251,7 +754,35 @@
                         });
                     }
 
-                    console.log('Positions restaurées pour le paquet:', currentDeck);
+                    // Restaure les groupes
+                    if (savedData.groups) {
+                        // Supprime les groupes existants
+                        groups.forEach((group, groupId) => {
+                            if (group.element && group.element.parentNode) {
+                                group.element.parentNode.removeChild(group.element);
+                            }
+                        });
+                        groups.clear();
+                        cardGroups.clear();
+                        groupCounter = 0;
+
+                        // Recrée les groupes sauvegardés
+                        Object.keys(savedData.groups).forEach(groupId => {
+                            const groupData = savedData.groups[groupId];
+                            const cardIds = groupData.cards;
+                            
+                            // Vérifie que toutes les cartes du groupe existent
+                            const existingCardIds = cardIds.filter(cardId => 
+                                document.querySelector(`[data-card-id="${cardId}"]`)
+                            );
+                            
+                            if (existingCardIds.length >= 2) {
+                                createGroup(existingCardIds, groupData.name);
+                            }
+                        });
+                    }
+
+                    console.log('Positions et groupes restaurés pour le paquet:', currentDeck);
                 }
             })
             .catch(error => {
@@ -259,24 +790,146 @@
             });
         }
 
-        // Fonction pour charger automatiquement le dernier paquet sauvegardé
-        function loadLastDeck() {
+        // Fonction pour charger toutes les cartes sauvegardées
+        function loadAllSavedCardsOnStartup() {
             fetch('/load_positions')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.positions.deck) {
-                    const savedDeck = data.positions.deck;
-                    // Met le select sur le bon paquet
-                    const deckSelect = document.getElementById('deck-name');
-                    deckSelect.value = savedDeck;
+                if (data.success && data.positions.cards) {
+                    const savedCards = data.positions.cards;
+                    const cardIds = Object.keys(savedCards);
                     
-                    // Importe automatiquement le paquet
-                    currentDeck = savedDeck;
-                    importDeck(savedDeck);
+                    if (cardIds.length === 0) {
+                        console.log('Aucune carte sauvegardée trouvée');
+                        return;
+                    }
+                    
+                    // Récupère les informations de toutes les cartes sauvegardées
+                    fetch('/get_cards_by_ids', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ card_ids: cardIds })
+                    })
+                    .then(response => response.json())
+                    .then(cardsData => {
+                        if (cardsData.success && cardsData.cards.length > 0) {
+                            // Vide le canvas au cas où
+                            canvas.innerHTML = '';
+                            cards = [];
+                            
+                            // Recrée toutes les cartes
+                            cardsData.cards.forEach(card => {
+                                const cardBox = document.createElement('div');
+                                cardBox.className = 'card-box';
+                                cardBox.setAttribute('data-card-id', card.card_id);
+                                
+                                // Applique les positions sauvegardées
+                                const savedPos = savedCards[card.card_id];
+                                cardBox.style.left = savedPos.left + 'px';
+                                cardBox.style.top = savedPos.top + 'px';
+                                cardBox.style.zIndex = savedPos.zIndex || 1;
+                                cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
+                                
+                                let content = '';
+                                for (const [field, text] of Object.entries(card.texts)) {
+                                    content += `<strong>${field}:</strong><p>${text}</p>`;
+                                }
+                                card.images.forEach(imgPath => {
+                                    content += `<img src="${imgPath}" alt="Image de la carte">`;
+                                });
+
+                                cardBox.innerHTML = content;
+                                canvas.appendChild(cardBox);
+                                cards.push(cardBox);
+                                makeDraggable(cardBox);
+                            });
+                            
+                            // Restaure la vue du canvas
+                            if (data.positions.canvas) {
+                                canvasX = data.positions.canvas.x || 0;
+                                canvasY = data.positions.canvas.y || 0;
+                                zoom = data.positions.canvas.zoom || 1;
+                                updateCanvasTransform();
+                            }
+                            
+                            console.log(`${cardsData.cards.length} cartes restaurées depuis la sauvegarde`);
+                            
+                            // Met le select sur le dernier deck pour la compatibilité
+                            if (data.positions.deck) {
+                                const deckSelect = document.getElementById('deck-name');
+                                deckSelect.value = data.positions.deck;
+                                currentDeck = data.positions.deck;
+                            }
+                            
+                            // Restaure les groupes sauvegardés
+                            if (data.positions.groups) {
+                                // Supprime les groupes existants
+                                groups.forEach((group, groupId) => {
+                                    if (group.element && group.element.parentNode) {
+                                        group.element.parentNode.removeChild(group.element);
+                                    }
+                                });
+                                groups.clear();
+                                cardGroups.clear();
+                                groupCounter = 0;
+
+                                // Recrée les groupes sauvegardés
+                                Object.keys(data.positions.groups).forEach(groupId => {
+                                    const groupData = data.positions.groups[groupId];
+                                    const cardIds = groupData.cards;
+                                    
+                                    // Vérifie que toutes les cartes du groupe existent
+                                    const existingCardIds = cardIds.filter(cardId => 
+                                        document.querySelector(`[data-card-id="${cardId}"]`)
+                                    );
+                                    
+                                    if (existingCardIds.length >= 2) {
+                                        createGroup(existingCardIds, groupData.name);
+                                    }
+                                });
+                            }
+                        }
+                    });
                 }
             })
             .catch(error => {
-                console.error('Erreur lors du chargement du dernier paquet:', error);
+                console.error('Erreur lors du chargement des cartes sauvegardées:', error);
+            });
+        }
+
+        // Fonction pour restaurer toutes les cartes sauvegardées (sans se limiter à un deck)
+        function loadAllSavedCards() {
+            fetch('/load_positions')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.positions.cards) {
+                    const savedCards = data.positions.cards;
+                    
+                    // Pour chaque carte sauvegardée, on essaie de la retrouver et la positionner
+                    Object.keys(savedCards).forEach(cardId => {
+                        const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                        if (cardElement) {
+                            const savedPos = savedCards[cardId];
+                            cardElement.style.left = savedPos.left + 'px';
+                            cardElement.style.top = savedPos.top + 'px';
+                            cardElement.style.zIndex = savedPos.zIndex || 1;
+                            cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
+                        }
+                    });
+
+                    // Restaure aussi le canvas
+                    if (data.positions.canvas) {
+                        canvasX = data.positions.canvas.x || 0;
+                        canvasY = data.positions.canvas.y || 0;
+                        zoom = data.positions.canvas.zoom || 1;
+                        updateCanvasTransform();
+                    }
+
+                    console.log('Toutes les cartes sauvegardées ont été repositionnées');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des cartes sauvegardées:', error);
             });
         }
 
@@ -397,6 +1050,8 @@
                     setTimeout(repelStep, 80); // Délai pour l'animation
                 } else {
                     isRepelling = false;
+                    // Met à jour les groupes après la répulsion
+                    updateAllGroups();
                 }
             }
 
@@ -491,26 +1146,58 @@
         function makeDraggable(element) {
             let isDragging = false;
             let startX, startY, startLeft, startTop;
+            let hasMoved = false; // Pour distinguer clic et drag
 
             element.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                startLeft = parseInt(element.style.left) || 0;
-                startTop = parseInt(element.style.top) || 0;
-                element.style.zIndex = ++cardCounter;
+                // Gestion du clic droit pour le menu contextuel
+                if (e.button === 2) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showContextMenu(e.clientX, e.clientY, element);
+                    return;
+                }
                 
-                // Désactive temporairement les transitions pendant le drag
-                element.style.transition = 'none';
-                
-                e.preventDefault();
+                // Gestion du clic gauche
+                if (e.button === 0) {
+                    isDragging = true;
+                    hasMoved = false;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    startLeft = parseInt(element.style.left) || 0;
+                    startTop = parseInt(element.style.top) || 0;
+                    element.style.zIndex = ++cardCounter;
+                    
+                    // Désactive temporairement les transitions pendant le drag
+                    element.style.transition = 'none';
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+
+            element.addEventListener('click', (e) => {
+                // Gère la sélection seulement si on n'a pas bougé la carte
+                if (!hasMoved) {
+                    handleCardClick(element, e);
+                }
                 e.stopPropagation();
+            });
+
+            // Empêche le menu contextuel par défaut du navigateur
+            element.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
             });
 
             document.addEventListener('mousemove', (e) => {
                 if (isDragging) {
                     const deltaX = (e.clientX - startX) / zoom;
                     const deltaY = (e.clientY - startY) / zoom;
+                    
+                    // Si on bouge de plus de 5px, on considère que c'est un drag
+                    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                        hasMoved = true;
+                    }
+                    
                     element.style.left = (startLeft + deltaX) + 'px';
                     element.style.top = (startTop + deltaY) + 'px';
                 }
@@ -521,10 +1208,15 @@
                     isDragging = false;
                     
                     // Réactive les transitions pour l'animation de répulsion
-                    element.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
+                    element.style.transition = 'left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease';
                     
                     // Vérifie et repousse les cartes qui se chevauchent après le déplacement
-                    setTimeout(() => repelOverlappingCards(), 50);
+                    if (hasMoved) {
+                        setTimeout(() => {
+                            repelOverlappingCards();
+                            updateAllGroups(); // Met à jour les groupes après le déplacement
+                        }, 50);
+                    }
                 }
             });
         }
@@ -643,7 +1335,103 @@
                 cards = [];
                 currentDeck = '';
                 cardCounter = 0;
+                deselectAllCards(); // Vide aussi la sélection
+                
+                // Vide aussi les groupes
+                groups.clear();
+                cardGroups.clear();
+                groupCounter = 0;
             }
+        });
+
+        // ===== GESTIONNAIRES D'ÉVÉNEMENTS POUR LA SÉLECTION =====
+        
+        // Menu contextuel - Désélectionner
+        document.getElementById('context-deselect').addEventListener('click', () => {
+            if (contextMenu.targetCard) {
+                toggleCardSelection(contextMenu.targetCard, false);
+            }
+            hideContextMenu();
+        });
+        
+        // Menu contextuel - Supprimer
+        document.getElementById('context-delete').addEventListener('click', () => {
+            if (contextMenu.targetCard) {
+                if (contextMenu.targetCard.isGroup) {
+                    // Supprimer un groupe
+                    deleteGroup(contextMenu.targetCard.groupId);
+                } else {
+                    // Supprimer une carte
+                    const cardId = contextMenu.targetCard.getAttribute('data-card-id');
+                    selectedCards.delete(cardId);
+                    cards = cards.filter(card => card !== contextMenu.targetCard);
+                    
+                    // Retire la carte de son groupe si elle en fait partie
+                    if (cardGroups.has(cardId)) {
+                        removeCardFromGroup(cardId);
+                    }
+                    
+                    contextMenu.targetCard.remove();
+                    updateSelectionDisplay();
+                }
+            }
+            hideContextMenu();
+        });
+        
+        // Menu contextuel - Mettre au premier plan
+        document.getElementById('context-bring-front').addEventListener('click', () => {
+            if (contextMenu.targetCard) {
+                contextMenu.targetCard.style.zIndex = ++cardCounter;
+            }
+            hideContextMenu();
+        });
+        
+        // Barre d'outils - Grouper
+        document.getElementById('group-selected').addEventListener('click', () => {
+            if (selectedCards.size >= 2) {
+                const cardIds = Array.from(selectedCards);
+                const groupId = createGroup(cardIds);
+                if (groupId) {
+                    deselectAllCards(); // Désélectionne les cartes après groupement
+                }
+            } else {
+                alert('Sélectionnez au moins 2 cartes pour créer un groupe');
+            }
+        });
+        
+        // Barre d'outils - Tout désélectionner
+        document.getElementById('deselect-all').addEventListener('click', () => {
+            deselectAllCards();
+        });
+        
+        // Clic global pour cacher le menu contextuel et désélectionner
+        document.addEventListener('click', (e) => {
+            // Cache le menu contextuel si on clique ailleurs
+            if (!contextMenu.contains(e.target)) {
+                hideContextMenu();
+            }
+            
+            // Désélectionne tout si on clique sur le canvas (pas sur une carte)
+            if (e.target === canvas || e.target === canvasContainer) {
+                deselectAllCards();
+            }
+        });
+        
+        // Empêche la propagation des clics dans les barres d'outils
+        document.getElementById('toolbar').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        document.getElementById('zoom-controls').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        selectionToolbar.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        contextMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
 
         // Empêche le zoom/pan accidentel du navigateur
@@ -675,9 +1463,9 @@
         // Initialisation
         updateCanvasTransform();
         
-        // Charge automatiquement le dernier paquet sauvegardé au chargement de la page
+        // Charge automatiquement toutes les cartes sauvegardées au chargement de la page
         window.addEventListener('load', () => {
-            loadLastDeck();
+            loadAllSavedCardsOnStartup();
         });
     </script>
 
