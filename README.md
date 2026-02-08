@@ -10,20 +10,12 @@ Interface web pour visualiser et organiser spatialement vos cartes Anki sur un c
 
 ## Lancer l'application
 
-## Installer les dépendances (JS)
-
 ```bash
-npm ci
-```
+# Installer les dépendances Python
+python3 -m pip install -e .
 
-Si besoin (si `npm ci` échoue) :
-
-```bash
-npm install
-```
-
-```bash
-python3 app.py
+# Lancer l'application
+python3 -m uvicorn src.anki_sketching.main:app --reload
 ```
 
 Puis ouvrir : http://localhost:5000
@@ -34,7 +26,7 @@ Puis ouvrir : http://localhost:5000
 - ✅ Import de decks Anki (filtrés sur "dessin::")
 - ✅ Dessin de flèches entre cartes
 - ✅ Création de groupes de cartes
-- ✅ Sauvegarde automatique dans `card_positions.json`
+- ✅ Sauvegarde automatique dans `data/card_positions.json`
 - ✅ Restauration de l'état au démarrage
 
 La session actuelle : 31 cartes du deck "dessin::encre::1-lignes" positionnées et organisées.

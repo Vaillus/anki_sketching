@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+    <title>Anki Sketching</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+
+    <div id="toolbar">
+        <h3 style="margin: 0 0 10px 0;">Anki Sketching</h3>
+        <form id="import-form">
+            <select id="deck-name" name="deck_name" required>
+                <option value="" disabled selected>Choisir un paquet</option>
+                {% for deck in decks %}
+                <option value="{{ deck }}">{{ deck }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Importer</button>
+        </form>
+        <div style="margin-top: 10px;">
+            <button id="save-positions" type="button">💾 Sauvegarder positions</button>
+            <button id="clear-canvas" type="button" style="margin-left: 10px;">🗑️ Vider le canvas</button>
+        </div>
+    </div>
+
+    <div id="zoom-controls">
+        <button id="zoom-in">+</button>
+        <span id="zoom-level">100%</span>
+        <button id="zoom-out">-</button>
+        <button id="reset-view">Reset</button>
+    </div>
+
+    <div id="canvas-container">
+        <div id="canvas">
+            <!-- Les cartes seront ajoutées ici -->
+        </div>
+    </div>
+
+    <div id="info-panel">
+        Position: <span id="position">0, 0</span> | Zoom: <span id="zoom-info">100%</span>
+    </div>
+
+    <!-- Menu contextuel -->
+    <div id="context-menu">
+        <div class="menu-item" id="context-deselect">Désélectionner</div>
+        <div class="menu-item" id="context-delete">Supprimer la carte</div>
+        <div class="menu-item" id="context-bring-front">Mettre au premier plan</div>
+    </div>
+
+    <!-- Barre d'outils de sélection -->
+    <div id="selection-toolbar">
+        <span id="selection-count">0 carte(s) sélectionnée(s)</span>
+        <button id="group-selected">🔗 Grouper</button>
+        <button id="deselect-all">❌ Tout désélectionner</button>
+    </div>
+
+    <!-- JavaScript modules -->
+    <script src="/static/js/globals.js"></script>
+    <script src="/static/js/resize.js"></script>
+    <script src="/static/js/canvas.js"></script>
+    <script src="/static/js/selection.js"></script>
+    <script src="/static/js/arrows.js"></script>
+    <script src="/static/js/groups.js"></script>
+    <script src="/static/js/physics.js"></script>
+    <script src="/static/js/storage.js"></script>
+    <script src="/static/js/cards.js"></script>
+    <script src="/static/js/bootstrap.js"></script>
+
+</body>
+</html>

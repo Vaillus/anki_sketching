@@ -7,6 +7,12 @@ name = "anki_sketching"
 version = "0.0.1"
 description = "A web interface for sketching Anki card relationships."
 requires-python = ">=3.8"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
