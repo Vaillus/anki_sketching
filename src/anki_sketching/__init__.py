@@ -1,0 +1,1 @@
+"""Anki Sketching FastAPI application."""

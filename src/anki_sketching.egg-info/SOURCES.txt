@@ -1,8 +1,16 @@
+README.md
 pyproject.toml
+src/anki_interface/get_all_decks.py
 src/anki_interface/get_card_information.py
 src/anki_interface/get_cards_ids.py
 src/anki_interface/utils.py
+src/anki_sketching/__init__.py
+src/anki_sketching/main.py
 src/anki_sketching.egg-info/PKG-INFO
 src/anki_sketching.egg-info/SOURCES.txt
 src/anki_sketching.egg-info/dependency_links.txt
+src/anki_sketching.egg-info/requires.txt
 src/anki_sketching.egg-info/top_level.txt
+src/anki_sketching/api/__init__.py
+src/anki_sketching/api/routes.py
+src/utilities/paths.py
