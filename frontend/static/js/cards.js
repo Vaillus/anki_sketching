@@ -211,6 +211,7 @@ function makeDraggable(element) {
             
             element.style.left = (startLeft + deltaX) + 'px';
             element.style.top = (startTop + deltaY) + 'px';
+            updateAllArrows();
         }
     });
 
@@ -235,6 +236,7 @@ function makeDraggable(element) {
                     updateGroupZIndex(groupId);
                 }
             }
+            updateAllArrows();
         }
     });
 }

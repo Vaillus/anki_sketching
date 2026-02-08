@@ -64,51 +64,66 @@ function removeAnchorPoints(elementId) {
 }
 
 function addAnchorPointEventListeners(topAnchor, bottomAnchor, leftAnchor, rightAnchor, elementId) {
-    // Gestionnaire pour le point du haut (point d'arrivée)
     topAnchor.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (isCreatingArrow && arrowStart && arrowStart.elementId !== elementId) {
-            // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
-            createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'top');
-            endArrowCreation();
-        }
+        handleAnchorClick(elementId, 'top');
     });
     
-    // Gestionnaire pour le point du bas (point de départ)
     bottomAnchor.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!isCreatingArrow) {
-            // Commence la création d'une flèche depuis ce point de départ
-            startArrowCreation(elementId, 'bottom');
-        } else if (arrowStart && arrowStart.elementId !== elementId) {
-            // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
-            createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'top');
-            endArrowCreation();
-        }
+        handleAnchorClick(elementId, 'bottom');
     });
     
-    // Gestionnaire pour le point de gauche (point d'arrivée)
     leftAnchor.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (isCreatingArrow && arrowStart && arrowStart.elementId !== elementId) {
-            // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
-            createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'left');
-            endArrowCreation();
-        }
+        handleAnchorClick(elementId, 'left');
     });
     
-    // Gestionnaire pour le point de droite (point de départ)
     rightAnchor.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!isCreatingArrow) {
-            // Commence la création d'une flèche depuis ce point de départ
-            startArrowCreation(elementId, 'right');
-        } else if (arrowStart && arrowStart.elementId !== elementId) {
-            // Termine la création de la flèche (du point de départ vers ce point d'arrivée)
-            createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, 'left');
-            endArrowCreation();
-        }
+        handleAnchorClick(elementId, 'right');
     });
+}
+
+function handleAnchorClick(elementId, anchorType) {
+    if (!isCreatingArrow) {
+        startArrowCreation(elementId, anchorType);
+        return;
+    }
+    
+    if (!arrowStart) {
+        startArrowCreation(elementId, anchorType);
+        return;
+    }
+    
+    if (arrowStart.elementId === elementId && arrowStart.anchorType === anchorType) {
+        endArrowCreation();
+        return;
+    }
+    
+    if (arrowStart.elementId === elementId) {
+        endArrowCreation();
+        return;
+    }
+    
+    createArrow(arrowStart.elementId, elementId, arrowStart.anchorType, anchorType);
+    endArrowCreation();
+}
+
+function getAnchorByType(anchors, anchorType) {
+    if (!anchors) return null;
+    switch (anchorType) {
+        case 'top':
+            return anchors.top;
+        case 'bottom':
+            return anchors.bottom;
+        case 'left':
+            return anchors.left;
+        case 'right':
+            return anchors.right;
+        default:
+            return null;
+    }
 }
 
 function startArrowCreation(elementId, anchorType) {
@@ -117,10 +132,8 @@ function startArrowCreation(elementId, anchorType) {
     
     // Ajoute la classe creating au point d'ancrage de départ
     const anchors = anchorPoints.get(elementId);
-    if (anchors) {
-        const startAnchor = anchorType === 'top' ? anchors.top : anchors.bottom;
-        startAnchor.classList.add('creating');
-    }
+    const startAnchor = getAnchorByType(anchors, anchorType);
+    if (startAnchor) startAnchor.classList.add('creating');
     
     console.log(`Création de flèche commencée depuis ${elementId} (${anchorType})`);
 }
@@ -139,6 +152,7 @@ function endArrowCreation() {
 
 function createArrow(fromElementId, toElementId, fromAnchorType, toAnchorType) {
     const arrowId = `arrow_${++arrowCounter}`;
+    const markerId = `arrowhead_${arrowId}`;
     
     // Crée l'élément SVG pour la flèche
     const arrowElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -151,12 +165,42 @@ function createArrow(fromElementId, toElementId, fromAnchorType, toAnchorType) {
     canvas.appendChild(arrowElement);
     
     // Stocke les informations de la flèche
+    // Ajoute la pointe de flèche
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', markerId);
+    marker.setAttribute('markerWidth', '10');
+    marker.setAttribute('markerHeight', '7');
+    marker.setAttribute('refX', '9');
+    marker.setAttribute('refY', '3.5');
+    marker.setAttribute('orient', 'auto');
+    
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+    polygon.setAttribute('fill', '#2196F3');
+    
+    marker.appendChild(polygon);
+    defs.appendChild(marker);
+    arrowElement.appendChild(defs);
+    
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke', '#2196F3');
+    path.setAttribute('stroke-width', '3');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('marker-end', `url(#${markerId})`);
+    path.setAttribute('data-arrow-id', arrowId);
+    path.style.pointerEvents = 'stroke';
+    path.addEventListener('contextmenu', handleArrowContextMenu);
+    arrowElement.appendChild(path);
+    
     arrows.set(arrowId, {
         from: fromElementId,
         to: toElementId,
         fromAnchor: fromAnchorType,
         toAnchor: toAnchorType,
-        element: arrowElement
+        element: arrowElement,
+        path: path,
+        markerId: markerId
     });
     
     // Met à jour la position de la flèche
@@ -196,60 +240,37 @@ function updateArrowPosition(arrowId) {
     arrow.element.style.top = minY + 'px';
     
     // Crée le chemin de la flèche
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const startX = fromPos.x - minX;
     const startY = fromPos.y - minY;
     const endX = toPos.x - minX;
     const endY = toPos.y - minY;
     
-    path.setAttribute('d', `M ${startX} ${startY} L ${endX} ${endY}`);
-    path.setAttribute('stroke', '#2196F3');
-    path.setAttribute('stroke-width', '3');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('marker-end', 'url(#arrowhead)');
-    
-    // Ajoute la pointe de flèche
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-    marker.setAttribute('id', 'arrowhead');
-    marker.setAttribute('markerWidth', '10');
-    marker.setAttribute('markerHeight', '7');
-    marker.setAttribute('refX', '9');
-    marker.setAttribute('refY', '3.5');
-    marker.setAttribute('orient', 'auto');
-    
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-    polygon.setAttribute('fill', '#2196F3');
-    
-    marker.appendChild(polygon);
-    defs.appendChild(marker);
-    arrow.element.appendChild(defs);
-    arrow.element.appendChild(path);
+    arrow.path.setAttribute('d', `M ${startX} ${startY} L ${endX} ${endY}`);
 }
 
 function getAnchorPosition(element, anchorType) {
     const rect = element.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
+    const scale = zoom || 1;
     
     let x, y;
     
     switch (anchorType) {
         case 'top':
-            x = rect.left - canvasRect.left + rect.width / 2;
-            y = rect.top - canvasRect.top;
+            x = (rect.left - canvasRect.left + rect.width / 2) / scale;
+            y = (rect.top - canvasRect.top) / scale;
             break;
         case 'bottom':
-            x = rect.left - canvasRect.left + rect.width / 2;
-            y = rect.top - canvasRect.top + rect.height;
+            x = (rect.left - canvasRect.left + rect.width / 2) / scale;
+            y = (rect.top - canvasRect.top + rect.height) / scale;
             break;
         case 'left':
-            x = rect.left - canvasRect.left;
-            y = rect.top - canvasRect.top + rect.height / 2;
+            x = (rect.left - canvasRect.left) / scale;
+            y = (rect.top - canvasRect.top + rect.height / 2) / scale;
             break;
         case 'right':
-            x = rect.left - canvasRect.left + rect.width;
-            y = rect.top - canvasRect.top + rect.height / 2;
+            x = (rect.left - canvasRect.left + rect.width) / scale;
+            y = (rect.top - canvasRect.top + rect.height / 2) / scale;
             break;
         default:
             return null;
@@ -262,4 +283,39 @@ function updateAllArrows() {
     arrows.forEach((arrow, arrowId) => {
         updateArrowPosition(arrowId);
     });
+}
+
+function handleArrowContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const arrowId = e.currentTarget.getAttribute('data-arrow-id');
+    if (arrowId) {
+        deleteArrow(arrowId);
+    }
+}
+
+function deleteArrow(arrowId) {
+    const arrow = arrows.get(arrowId);
+    if (!arrow) return;
+    if (arrow.element && arrow.element.parentNode) {
+        arrow.element.parentNode.removeChild(arrow.element);
+    }
+    arrows.delete(arrowId);
+}
+
+function deleteArrowsForElement(elementId) {
+    const arrowsToDelete = [];
+    arrows.forEach((arrow, arrowId) => {
+        if (arrow.from === elementId || arrow.to === elementId) {
+            arrowsToDelete.push(arrowId);
+        }
+    });
+    arrowsToDelete.forEach((arrowId) => deleteArrow(arrowId));
+}
+
+function clearAllArrows() {
+    const arrowIds = Array.from(arrows.keys());
+    arrowIds.forEach((arrowId) => deleteArrow(arrowId));
+    arrows.clear();
+    arrowCounter = 0;
 }
