@@ -132,6 +132,7 @@ function deleteGroup(groupId) {
     
     // Supprime les points d'ancrage du groupe
     removeAnchorPoints(groupId);
+    deleteArrowsForElement(groupId);
     
     // Supprime de la structure de données
     groups.delete(groupId);
@@ -307,6 +308,7 @@ function makeGroupDraggable(groupElement, groupId) {
                     groupElement.style.top = (initialGroupPos.top + deltaY) + 'px';
                 }
             }
+            updateAllArrows();
         }
     });
 
@@ -321,6 +323,7 @@ function makeGroupDraggable(groupElement, groupId) {
             if (hasMoved) {
                 setTimeout(() => updateGroupBounds(groupId), 50);
             }
+            updateAllArrows();
         }
     });
 }

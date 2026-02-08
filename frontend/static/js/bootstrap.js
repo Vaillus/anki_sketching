@@ -21,6 +21,10 @@ document.getElementById('clear-canvas').addEventListener('click', function() {
         groups.clear();
         cardGroups.clear();
         groupCounter = 0;
+        
+        // Vide aussi les flèches et points d'ancrage
+        clearAllArrows();
+        anchorPoints.clear();
     }
 });
 
@@ -50,6 +54,9 @@ document.getElementById('context-delete').addEventListener('click', () => {
             if (cardGroups.has(cardId)) {
                 removeCardFromGroup(cardId);
             }
+            
+            deleteArrowsForElement(cardId);
+            removeAnchorPoints(cardId);
             
             contextMenu.targetCard.remove();
             updateSelectionDisplay();
