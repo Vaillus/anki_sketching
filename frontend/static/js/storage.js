@@ -1,3 +1,40 @@
+const VALID_ARROW_ANCHORS = new Set(['top', 'bottom', 'left', 'right']);
+
+function getArrowElementById(elementId) {
+    return document.querySelector(`[data-card-id="${elementId}"]`) || 
+        document.querySelector(`[data-group-id="${elementId}"]`);
+}
+
+function attachArrowRefreshOnImageLoad() {
+    const images = canvas.querySelectorAll('img');
+    images.forEach((img) => {
+        if (img.complete) return;
+        img.addEventListener('load', updateAllArrows, { once: true });
+    });
+}
+
+function scheduleArrowLayoutRefresh() {
+    updateAllArrows();
+    requestAnimationFrame(updateAllArrows);
+    setTimeout(updateAllArrows, 0);
+    attachArrowRefreshOnImageLoad();
+}
+
+function restoreSavedArrows(arrowsData) {
+    clearAllArrows();
+    if (!Array.isArray(arrowsData)) return;
+
+    arrowsData.forEach((arrowData) => {
+        if (!arrowData) return;
+        const { from, to, fromAnchor, toAnchor } = arrowData;
+        if (!VALID_ARROW_ANCHORS.has(fromAnchor) || !VALID_ARROW_ANCHORS.has(toAnchor)) return;
+        if (!getArrowElementById(from) || !getArrowElementById(to)) return;
+        createArrow(from, to, fromAnchor, toAnchor);
+    });
+
+    scheduleArrowLayoutRefresh();
+}
+
 function saveCardPositions() {
     if (cards.length === 0) {
         alert('Aucune carte à sauvegarder.');
@@ -29,12 +66,24 @@ function saveCardPositions() {
         };
     });
 
+    // Sauvegarde des flèches
+    const arrowsData = [];
+    arrows.forEach((arrow) => {
+        arrowsData.push({
+            from: arrow.from,
+            to: arrow.to,
+            fromAnchor: arrow.fromAnchor,
+            toAnchor: arrow.toAnchor
+        });
+    });
+
     const saveData = {
         deck: currentDeck || 'mixed', // Garde la compatibilité avec l'ancien format
         decks: Array.from(decks), // Nouvelle info : tous les decks présents
         canvas: { x: canvasX, y: canvasY, zoom: zoom },
         cards: positions,
-        groups: groupsData // Nouveau : sauvegarde des groupes
+        groups: groupsData, // Nouveau : sauvegarde des groupes
+        arrows: arrowsData // Nouveau : sauvegarde des flèches
     };
 
     fetch('/save_positions', {
@@ -45,7 +94,7 @@ function saveCardPositions() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Positions et groupes sauvegardés !');
+            alert('✅ Positions, groupes et flèches sauvegardés !');
         } else {
             alert('❌ Erreur lors de la sauvegarde: ' + data.error);
         }
@@ -114,6 +163,11 @@ function loadCardPositions() {
                         createGroup(existingCardIds, groupData.name);
                     }
                 });
+            }
+
+            // Restaure les flèches
+            if (savedData.arrows) {
+                restoreSavedArrows(savedData.arrows);
             }
 
             console.log('Positions et groupes restaurés pour le paquet:', currentDeck);
@@ -222,6 +276,11 @@ function loadAllSavedCardsOnStartup() {
                                 createGroup(existingCardIds, groupData.name);
                             }
                         });
+                    }
+
+                    // Restaure les flèches sauvegardées
+                    if (data.positions.arrows) {
+                        restoreSavedArrows(data.positions.arrows);
                     }
                 }
             });
