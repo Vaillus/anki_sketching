@@ -89,12 +89,13 @@
             position: absolute;
             border: 3px solid #ccc;
             border-radius: 8px;
-            padding: 1em;
             width: 300px;
             height: 200px;
             min-width: 180px;
             min-height: 120px;
-            overflow: auto;
+            padding: 0;
+            overflow: hidden;
+            box-sizing: border-box;
             background-color: white;
             cursor: move;
             z-index: 10;
@@ -102,31 +103,17 @@
             transition: left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease;
         }
 
-        .resize-handle {
+        .card-content {
             position: absolute;
-            right: 4px;
-            bottom: 4px;
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
-            background: repeating-linear-gradient(
-                135deg,
-                rgba(0, 0, 0, 0.35) 0px,
-                rgba(0, 0, 0, 0.35) 3px,
-                rgba(255, 255, 255, 0.35) 3px,
-                rgba(255, 255, 255, 0.35) 6px
-            );
-            border: 1px solid rgba(0,0,0,0.35);
-            cursor: nwse-resize;
-            z-index: 200;
-            opacity: 0.7;
-            pointer-events: auto;
+            left: 0;
+            top: 0;
+            right: 10px;
+            bottom: 10px;
+            overflow: auto;
+            padding: 1em;
+            box-sizing: border-box;
         }
 
-        .card-box:hover .resize-handle { 
-            opacity: 1; 
-        }
-        
         .card-box.selected {
             border-color: #4CAF50;
             box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
@@ -395,7 +382,51 @@
         let arrowCounter = 0; // Compteur pour les IDs de flèches
         
         // Variables pour le redimensionnement des cartes
-        let resizingState = null; // { element, startX, startY, startW, startH }
+        let resizingState = null; // { element, edges, startX, startY, startLeft, startTop, startW, startH }
+        const RESIZE_BORDER_PX = 10;
+        const MIN_CARD_WIDTH_PX = 180;
+        const MIN_CARD_HEIGHT_PX = 120;
+        const SCROLLBAR_GUTTER_PX = 16;
+
+        function getPointerPosInElement(element, clientX, clientY) {
+            const rect = element.getBoundingClientRect();
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+                w: rect.width,
+                h: rect.height
+            };
+        }
+
+        function getResizeEdges(element, clientX, clientY) {
+            const pos = getPointerPosInElement(element, clientX, clientY);
+            const x = pos.x;
+            const y = pos.y;
+            const w = pos.w;
+            const h = pos.h;
+
+            const style = window.getComputedStyle(element);
+            const hasVScroll = (style.overflowY === 'auto' || style.overflowY === 'scroll') && element.scrollHeight > element.clientHeight;
+            const hasHScroll = (style.overflowX === 'auto' || style.overflowX === 'scroll') && element.scrollWidth > element.clientWidth;
+            if (hasVScroll && x >= w - SCROLLBAR_GUTTER_PX) return null;
+            if (hasHScroll && y >= h - SCROLLBAR_GUTTER_PX) return null;
+
+            const left = x <= RESIZE_BORDER_PX;
+            const right = x >= w - RESIZE_BORDER_PX;
+            const top = y <= RESIZE_BORDER_PX;
+            const bottom = y >= h - RESIZE_BORDER_PX;
+
+            if (!left && !right && !top && !bottom) return null;
+            return { left, right, top, bottom };
+        }
+
+        function getResizeCursor(edges) {
+            if ((edges.left && edges.top) || (edges.right && edges.bottom)) return 'nwse-resize';
+            if ((edges.right && edges.top) || (edges.left && edges.bottom)) return 'nesw-resize';
+            if (edges.left || edges.right) return 'ew-resize';
+            if (edges.top || edges.bottom) return 'ns-resize';
+            return 'nwse-resize';
+        }
 
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvas-container');
@@ -1282,11 +1313,10 @@
                                     content += `<img src="${imgPath}" alt="Image de la carte">`;
                                 });
 
-                                cardBox.innerHTML = content;
+                                cardBox.innerHTML = `<div class="card-content">${content}</div>`;
                                 canvas.appendChild(cardBox);
                                 cards.push(cardBox);
                                 makeDraggable(cardBox);
-                                addResizeHandle(cardBox);
                             });
                             
                             // Restaure la vue du canvas
@@ -1630,6 +1660,30 @@
                 
                 // Gestion du clic gauche
                 if (e.button === 0) {
+                    // Si on clique sur la bordure, on redimensionne au lieu de déplacer
+                    const resizeEdges = getResizeEdges(element, e.clientX, e.clientY);
+                    if (resizeEdges) {
+                        hasMoved = true; // évite le toggle de sélection sur click après resize
+                        resizingState = {
+                            element: element,
+                            edges: resizeEdges,
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            startLeft: parseInt(element.style.left) || 0,
+                            startTop: parseInt(element.style.top) || 0,
+                            startW: element.offsetWidth,
+                            startH: element.offsetHeight
+                        };
+
+                        // Désactive temporairement les transitions pendant le resize
+                        element.style.transition = 'none';
+                        element.style.cursor = getResizeCursor(resizeEdges);
+
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+
                     isDragging = true;
                     hasMoved = false;
                     startX = e.clientX;
@@ -1644,6 +1698,17 @@
                     e.preventDefault();
                     e.stopPropagation();
                 }
+            });
+
+            element.addEventListener('mousemove', (e) => {
+                if (resizingState && resizingState.element === element) return;
+                const edges = getResizeEdges(element, e.clientX, e.clientY);
+                element.style.cursor = edges ? getResizeCursor(edges) : 'move';
+            });
+
+            element.addEventListener('mouseleave', () => {
+                if (resizingState && resizingState.element === element) return;
+                element.style.cursor = 'move';
             });
 
             element.addEventListener('click', (e) => {
@@ -1725,30 +1790,6 @@
             });
         }
 
-        // Ajoute une poignée de redimensionnement à une carte
-        function addResizeHandle(cardElement) {
-            // Évite les doublons
-            if (cardElement.querySelector('.resize-handle')) return;
-
-            const handle = document.createElement('div');
-            handle.className = 'resize-handle';
-            cardElement.appendChild(handle);
-
-            handle.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                e.preventDefault();
-                e.stopPropagation(); // Empêche le drag de la carte
-
-                resizingState = {
-                    element: cardElement,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    startW: cardElement.offsetWidth,
-                    startH: cardElement.offsetHeight
-                };
-            });
-        }
-
         // Gestion globale du redimensionnement
         document.addEventListener('mousemove', (e) => {
             if (!resizingState) return;
@@ -1756,9 +1797,49 @@
             const dx = (e.clientX - resizingState.startX) / zoom;
             const dy = (e.clientY - resizingState.startY) / zoom;
 
-            const newW = Math.max(180, Math.round(resizingState.startW + dx));
-            const newH = Math.max(120, Math.round(resizingState.startH + dy));
+            const edges = resizingState.edges || { left: false, right: true, top: false, bottom: true };
+            const startW = resizingState.startW;
+            const startH = resizingState.startH;
+            const startLeft = resizingState.startLeft;
+            const startTop = resizingState.startTop;
 
+            let newLeft = startLeft;
+            let newTop = startTop;
+            let newW = startW;
+            let newH = startH;
+
+            if (edges.right) newW = startW + dx;
+            if (edges.bottom) newH = startH + dy;
+            if (edges.left) {
+                newW = startW - dx;
+                newLeft = startLeft + dx;
+            }
+            if (edges.top) {
+                newH = startH - dy;
+                newTop = startTop + dy;
+            }
+
+            // Clamp + ajustement de position pour garder le bord opposé fixe
+            if (newW < MIN_CARD_WIDTH_PX) {
+                if (edges.left && !edges.right) {
+                    newLeft = startLeft + (startW - MIN_CARD_WIDTH_PX);
+                }
+                newW = MIN_CARD_WIDTH_PX;
+            }
+            if (newH < MIN_CARD_HEIGHT_PX) {
+                if (edges.top && !edges.bottom) {
+                    newTop = startTop + (startH - MIN_CARD_HEIGHT_PX);
+                }
+                newH = MIN_CARD_HEIGHT_PX;
+            }
+
+            newLeft = Math.round(newLeft);
+            newTop = Math.round(newTop);
+            newW = Math.round(newW);
+            newH = Math.round(newH);
+
+            resizingState.element.style.left = newLeft + 'px';
+            resizingState.element.style.top = newTop + 'px';
             resizingState.element.style.width = newW + 'px';
             resizingState.element.style.height = newH + 'px';
 
@@ -1772,6 +1853,12 @@
 
         document.addEventListener('mouseup', () => {
             if (!resizingState) return;
+            // Réactive les transitions et repousse si besoin (comme après un drag)
+            resizingState.element.style.transition = 'left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease';
+            setTimeout(() => {
+                repelOverlappingCards();
+                updateAllGroups();
+            }, 50);
             resizingState = null;
         });
 
@@ -1849,11 +1936,10 @@
                         content += `<img src="${imgPath}" alt="Image de la carte">`;
                     });
 
-                    cardBox.innerHTML = content;
+                    cardBox.innerHTML = `<div class="card-content">${content}</div>`;
                     canvas.appendChild(cardBox);
                     cards.push(cardBox); // Ajoute la carte au tableau
                     makeDraggable(cardBox);
-                    addResizeHandle(cardBox);
                 });
                 
                 // Charge les positions sauvegardées après avoir créé toutes les cartes
