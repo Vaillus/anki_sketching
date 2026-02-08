@@ -92,12 +92,39 @@
             padding: 1em;
             width: 300px;
             height: 200px;
+            min-width: 180px;
+            min-height: 120px;
             overflow: auto;
             background-color: white;
             cursor: move;
             z-index: 10;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             transition: left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease;
+        }
+
+        .resize-handle {
+            position: absolute;
+            right: 4px;
+            bottom: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            background: repeating-linear-gradient(
+                135deg,
+                rgba(0, 0, 0, 0.35) 0px,
+                rgba(0, 0, 0, 0.35) 3px,
+                rgba(255, 255, 255, 0.35) 3px,
+                rgba(255, 255, 255, 0.35) 6px
+            );
+            border: 1px solid rgba(0,0,0,0.35);
+            cursor: nwse-resize;
+            z-index: 200;
+            opacity: 0.7;
+            pointer-events: auto;
+        }
+
+        .card-box:hover .resize-handle { 
+            opacity: 1; 
         }
         
         .card-box.selected {
@@ -366,6 +393,9 @@
         let arrowStart = null; // Point de départ de la flèche
         let arrows = new Map(); // Map: arrowId -> { from: elementId, to: elementId, element: HTMLElement }
         let arrowCounter = 0; // Compteur pour les IDs de flèches
+        
+        // Variables pour le redimensionnement des cartes
+        let resizingState = null; // { element, startX, startY, startW, startH }
 
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvas-container');
@@ -476,9 +506,9 @@
                     const left = parseInt(cardElement.style.left) || 0;
                     const top = parseInt(cardElement.style.top) || 0;
                     
-                    // Utilise les mêmes dimensions fixes que le reste du système
-                    const width = 300; // Largeur fixe des cartes (CSS)
-                    const height = 200; // Hauteur fixe des cartes (CSS)
+                    // Utilise la taille réelle (pour supporter le redimensionnement)
+                    const width = cardElement.offsetWidth || 300;
+                    const height = cardElement.offsetHeight || 200;
                     
                     minX = Math.min(minX, left);
                     minY = Math.min(minY, top);
@@ -1089,7 +1119,9 @@
                 positions[cardId] = {
                     left: parseInt(card.style.left) || 0,
                     top: parseInt(card.style.top) || 0,
-                    zIndex: parseInt(card.style.zIndex) || 1
+                    zIndex: parseInt(card.style.zIndex) || 1,
+                    width: card.offsetWidth,
+                    height: card.offsetHeight
                 };
                 // Essaie de deviner le deck de chaque carte (basé sur le dernier deck importé)
                 decks.add(currentDeck || 'mixed');
@@ -1157,6 +1189,8 @@
                                 card.style.left = savedPos.left + 'px';
                                 card.style.top = savedPos.top + 'px';
                                 card.style.zIndex = savedPos.zIndex || 1;
+                                if (savedPos.width) card.style.width = savedPos.width + 'px';
+                                if (savedPos.height) card.style.height = savedPos.height + 'px';
                                 cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
                             }
                         });
@@ -1236,6 +1270,8 @@
                                 cardBox.style.left = savedPos.left + 'px';
                                 cardBox.style.top = savedPos.top + 'px';
                                 cardBox.style.zIndex = savedPos.zIndex || 1;
+                                if (savedPos.width) cardBox.style.width = savedPos.width + 'px';
+                                if (savedPos.height) cardBox.style.height = savedPos.height + 'px';
                                 cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
                                 
                                 let content = '';
@@ -1250,6 +1286,7 @@
                                 canvas.appendChild(cardBox);
                                 cards.push(cardBox);
                                 makeDraggable(cardBox);
+                                addResizeHandle(cardBox);
                             });
                             
                             // Restaure la vue du canvas
@@ -1321,6 +1358,8 @@
                             cardElement.style.left = savedPos.left + 'px';
                             cardElement.style.top = savedPos.top + 'px';
                             cardElement.style.zIndex = savedPos.zIndex || 1;
+                            if (savedPos.width) cardElement.style.width = savedPos.width + 'px';
+                            if (savedPos.height) cardElement.style.height = savedPos.height + 'px';
                             cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
                         }
                     });
@@ -1353,8 +1392,8 @@
         function getCardRect(cardElement) {
             const left = parseInt(cardElement.style.left) || 0;
             const top = parseInt(cardElement.style.top) || 0;
-            const width = 300; // largeur fixe des cartes
-            const height = 200; // hauteur fixe des cartes
+            const width = cardElement.offsetWidth || 300;
+            const height = cardElement.offsetHeight || 200;
             
             return {
                 left: left,
@@ -1418,8 +1457,8 @@
                                 force2.y += 30;
                             } else {
                                 // Calcule la force de répulsion nécessaire pour séparer les cartes
-                                const overlapX = Math.max(0, (300) - Math.abs(deltaX));
-                                const overlapY = Math.max(0, (200) - Math.abs(deltaY));
+                                const overlapX = Math.max(0, Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left));
+                                const overlapY = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top));
                                 const overlap = overlapX + overlapY;
                                 
                                 const forceStrength = Math.min(40, overlap * 0.3 + 15);
@@ -1474,35 +1513,59 @@
             position.textContent = `${Math.round(-canvasX)}, ${Math.round(-canvasY)}`;
         }
 
-        // Gestion du zoom avec la molette
-        canvasContainer.addEventListener('wheel', (e) => {
+        function isPinchZoomWheelEvent(e) {
+            // macOS trackpad pinch commonly triggers wheel events with ctrlKey=true
+            return e.ctrlKey === true;
+        }
+
+        // Sensibilité du pinch-to-zoom (plus petit = moins sensible)
+        const PINCH_ZOOM_SENSITIVITY = 0.004;
+
+        function handleCanvasWheel(e) {
             // Vérifie si la souris est au-dessus d'une carte
             const target = e.target;
             const cardBox = target.closest('.card-box');
-            
-            if (cardBox) {
-                // Si on est sur une carte, laisse le comportement de scroll normal de la carte
-                // Ne pas preventDefault() pour permettre le scroll du contenu de la carte
+            const isPinch = isPinchZoomWheelEvent(e);
+
+            // Si on est sur une carte, laisse le scroll normal de la carte
+            // (sauf si on est en pinch: dans ce cas on veut zoomer le canvas)
+            if (cardBox && !isPinch) {
                 return;
             }
-            
-            // Sinon, zoom sur le canvas
+
             e.preventDefault();
+
+            if (!isPinch) {
+                // Deux doigts (scroll) = pan du canvas
+                canvasX -= e.deltaX;
+                canvasY -= e.deltaY;
+                updateCanvasTransform();
+                return;
+            }
+
+            // Pinch = zoom vers la souris
             const rect = canvasContainer.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
-            
+
             const oldZoom = zoom;
-            const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+            // Zoom moins sensible: facteur continu basé sur deltaY
+            // deltaY > 0 => zoom out, deltaY < 0 => zoom in
+            let zoomFactor = Math.exp(-e.deltaY * PINCH_ZOOM_SENSITIVITY);
+            // Clamp pour éviter les sauts sur de gros deltas
+            zoomFactor = Math.max(0.98, Math.min(1.02, zoomFactor));
             zoom = Math.max(0.1, Math.min(3, zoom * zoomFactor));
-            
+
             // Ajuste la position pour zoomer vers la souris
             const zoomChange = zoom / oldZoom;
             canvasX = mouseX - (mouseX - canvasX) * zoomChange;
             canvasY = mouseY - (mouseY - canvasY) * zoomChange;
-            
+
             updateCanvasTransform();
-        });
+        }
+
+        // Important: passive:false pour que preventDefault() fonctionne sur wheel
+        canvasContainer.addEventListener('wheel', handleCanvasWheel, { passive: false });
 
         // Gestion du déplacement du canvas
         canvasContainer.addEventListener('mousedown', (e) => {
@@ -1662,6 +1725,56 @@
             });
         }
 
+        // Ajoute une poignée de redimensionnement à une carte
+        function addResizeHandle(cardElement) {
+            // Évite les doublons
+            if (cardElement.querySelector('.resize-handle')) return;
+
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            cardElement.appendChild(handle);
+
+            handle.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation(); // Empêche le drag de la carte
+
+                resizingState = {
+                    element: cardElement,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startW: cardElement.offsetWidth,
+                    startH: cardElement.offsetHeight
+                };
+            });
+        }
+
+        // Gestion globale du redimensionnement
+        document.addEventListener('mousemove', (e) => {
+            if (!resizingState) return;
+
+            const dx = (e.clientX - resizingState.startX) / zoom;
+            const dy = (e.clientY - resizingState.startY) / zoom;
+
+            const newW = Math.max(180, Math.round(resizingState.startW + dx));
+            const newH = Math.max(120, Math.round(resizingState.startH + dy));
+
+            resizingState.element.style.width = newW + 'px';
+            resizingState.element.style.height = newH + 'px';
+
+            // Garder les flèches/groupes synchronisés avec la nouvelle taille
+            updateAllArrows();
+            const cardId = resizingState.element.getAttribute('data-card-id');
+            if (cardId && cardGroups.has(cardId)) {
+                updateGroupBounds(cardGroups.get(cardId));
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!resizingState) return;
+            resizingState = null;
+        });
+
         // Fonction pour calculer les limites des cartes existantes
         function getExistingCardsBounds() {
             if (cards.length === 0) {
@@ -1740,6 +1853,7 @@
                     canvas.appendChild(cardBox);
                     cards.push(cardBox); // Ajoute la carte au tableau
                     makeDraggable(cardBox);
+                    addResizeHandle(cardBox);
                 });
                 
                 // Charge les positions sauvegardées après avoir créé toutes les cartes
