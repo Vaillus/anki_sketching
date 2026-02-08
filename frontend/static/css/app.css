@@ -3,6 +3,8 @@ body {
     margin: 0; 
     padding: 0; 
     overflow: hidden;
+    background-color: #211757;
+    color: #f1eeff;
     /* Empêche le zoom accidentel du navigateur */
     touch-action: none;
     -webkit-touch-callout: none;
@@ -18,11 +20,11 @@ body {
     top: 10px; 
     left: 10px; 
     z-index: 10000; 
-    background: white; 
+    background: #2b1f6b; 
     padding: 15px; 
     border-radius: 8px; 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    border: 1px solid #ccc;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    border: 1px solid #3a2b86;
     /* Empêche les interactions accidentelles */
     pointer-events: auto;
     /* Réactive la sélection de texte dans la barre d'outils */
@@ -37,11 +39,11 @@ body {
     top: 10px;
     right: 10px;
     z-index: 10000;
-    background: white;
+    background: #2b1f6b;
     padding: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    border: 1px solid #ccc;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    border: 1px solid #3a2b86;
     pointer-events: auto;
     -webkit-user-select: auto;
     -moz-user-select: auto;
@@ -52,8 +54,9 @@ body {
 #zoom-controls button {
     margin: 0 5px;
     padding: 5px 10px;
-    border: 1px solid #ccc;
-    background: white;
+    border: 1px solid #3a2b86;
+    background: #34257a;
+    color: #f1eeff;
     border-radius: 4px;
     cursor: pointer;
 }
@@ -80,7 +83,7 @@ body {
 
 .card-box {
     position: absolute;
-    border: 3px solid #ccc;
+    border: 3px solid #3a2b86;
     border-radius: 8px;
     width: 300px;
     height: 200px;
@@ -89,10 +92,10 @@ body {
     padding: 0;
     overflow: visible;
     box-sizing: border-box;
-    background-color: white;
+    background-color: #2b1f6b;
     cursor: move;
     z-index: 10;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
     transition: left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease;
 }
 
@@ -105,6 +108,7 @@ body {
     overflow: auto;
     padding: 1em;
     box-sizing: border-box;
+    color: #f1eeff;
 }
 
 .card-box.selected {
@@ -126,8 +130,8 @@ body {
     bottom: 10px;
     left: 10px;
     z-index: 10000;
-    background: rgba(0,0,0,0.8);
-    color: white;
+    background: rgba(33, 23, 87, 0.9);
+    color: #f1eeff;
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 12px;
@@ -141,10 +145,10 @@ body {
 #context-menu {
     position: fixed;
     z-index: 10001;
-    background: white;
-    border: 1px solid #ccc;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
     border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6);
     padding: 0;
     min-width: 150px;
     display: none;
@@ -153,8 +157,9 @@ body {
 #context-menu .menu-item {
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #3a2b86;
     font-size: 14px;
+    color: #f1eeff;
 }
 
 #context-menu .menu-item:last-child {
@@ -162,7 +167,7 @@ body {
 }
 
 #context-menu .menu-item:hover {
-    background-color: #f0f0f0;
+    background-color: #34257a;
 }
 
 #selection-toolbar {
@@ -170,25 +175,26 @@ body {
     bottom: 60px;
     left: 10px;
     z-index: 10000;
-    background: white;
+    background: #2b1f6b;
     padding: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    border: 1px solid #ccc;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    border: 1px solid #3a2b86;
     display: none;
 }
 
 #selection-toolbar button {
     margin-right: 10px;
     padding: 8px 12px;
-    border: 1px solid #ccc;
-    background: white;
+    border: 1px solid #3a2b86;
+    background: #34257a;
+    color: #f1eeff;
     border-radius: 4px;
     cursor: pointer;
 }
 
 #selection-toolbar button:hover {
-    background-color: #f0f0f0;
+    background-color: #3f2f95;
 }
 
 .group-box {
