@@ -1,0 +1,202 @@
+{
+  "deck": "dessin::perspective::2-rudiments de 3D",
+  "decks": [
+    "dessin::perspective::2-rudiments de 3D"
+  ],
+  "canvas": {
+    "x": 968.3361339932942,
+    "y": 90.67772827289701,
+    "zoom": 0.3568337764991739
+  },
+  "cards": {
+    "1721160391157": {
+      "left": -187,
+      "top": -352,
+      "zIndex": 55,
+      "width": 328,
+      "height": 214
+    },
+    "1721160317692": {
+      "left": -1385,
+      "top": 252,
+      "zIndex": 51,
+      "width": 338,
+      "height": 238
+    },
+    "1721160417440": {
+      "left": -598,
+      "top": -365,
+      "zIndex": 54,
+      "width": 338,
+      "height": 238
+    },
+    "1721160506870": {
+      "left": -1176,
+      "top": 673,
+      "zIndex": 86,
+      "width": 338,
+      "height": 238
+    },
+    "1721161532151": {
+      "left": -965,
+      "top": 100,
+      "zIndex": 50,
+      "width": 327,
+      "height": 408
+    },
+    "1721161560347": {
+      "left": 15,
+      "top": 64,
+      "zIndex": 87,
+      "width": 455,
+      "height": 388
+    },
+    "1721691460993": {
+      "left": -1274,
+      "top": 1066,
+      "zIndex": 57,
+      "width": 556,
+      "height": 709
+    },
+    "1721162460243": {
+      "left": 765,
+      "top": 1268,
+      "zIndex": 81,
+      "width": 180,
+      "height": 587
+    },
+    "1721162306335": {
+      "left": 235,
+      "top": 1447,
+      "zIndex": 77,
+      "width": 282,
+      "height": 267
+    },
+    "1721161655016": {
+      "left": -473,
+      "top": 1189,
+      "zIndex": 92,
+      "width": 200,
+      "height": 393
+    },
+    "1721161770949": {
+      "left": 330,
+      "top": 778,
+      "zIndex": 88,
+      "width": 291,
+      "height": 571
+    },
+    "1721161682605": {
+      "left": -168,
+      "top": 1069,
+      "zIndex": 94,
+      "width": 250,
+      "height": 616
+    },
+    "1721160566764": {
+      "left": -1311,
+      "top": 1881,
+      "zIndex": 84,
+      "width": 658,
+      "height": 863
+    },
+    "1721162416814": {
+      "left": 1070,
+      "top": 1339,
+      "zIndex": 82,
+      "width": 500,
+      "height": 491
+    },
+    "1721160606543": {
+      "left": -487,
+      "top": 590,
+      "zIndex": 60,
+      "width": 526,
+      "height": 422
+    }
+  },
+  "groups": {
+    "group_1": {
+      "name": "Groupe 2",
+      "cards": [
+        "1721161532151",
+        "1721160317692"
+      ]
+    },
+    "group_2": {
+      "name": "Groupe 3",
+      "cards": [
+        "1721160417440",
+        "1721160391157"
+      ]
+    }
+  },
+  "arrows": [
+    {
+      "from": "group_1",
+      "to": "1721160506870",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721160506870",
+      "to": "1721691460993",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721691460993",
+      "to": "1721160566764",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "group_1",
+      "to": "1721160606543",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721161560347",
+      "to": "1721160606543",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721161655016",
+      "to": "1721161682605",
+      "fromAnchor": "right",
+      "toAnchor": "left"
+    },
+    {
+      "from": "1721161682605",
+      "to": "1721162306335",
+      "fromAnchor": "right",
+      "toAnchor": "left"
+    },
+    {
+      "from": "1721162306335",
+      "to": "1721161770949",
+      "fromAnchor": "top",
+      "toAnchor": "bottom"
+    },
+    {
+      "from": "1721162306335",
+      "to": "1721162460243",
+      "fromAnchor": "right",
+      "toAnchor": "left"
+    },
+    {
+      "from": "1721162460243",
+      "to": "1721162416814",
+      "fromAnchor": "right",
+      "toAnchor": "left"
+    },
+    {
+      "from": "group_2",
+      "to": "1721161655016",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    }
+  ]
+}
