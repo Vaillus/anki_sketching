@@ -62,10 +62,28 @@ function importDeck(deckName) {
             cardBox.style.top = (startY + row * cardHeight) + 'px';
             cardBox.style.zIndex = ++cardCounter;
             
+            // Construire le contenu avec les infos de carte
             let content = '';
+            
+            // Ajouter les informations de planification en haut
+            if (card.type !== undefined && card.type_label) {
+                const typeClass = card.type_label.toLowerCase().replace(' ', '-');
+                content += '<div class="card-info">';
+                content += `<span class="card-type ${typeClass}">${card.type_label}</span>`;
+                
+                if (card.due_display) {
+                    content += `<span class="card-due">${card.due_display}</span>`;
+                }
+                
+                content += '</div>';
+            }
+            
+            // Ajouter les champs de la carte
             for (const [field, text] of Object.entries(card.texts)) {
                 content += `<strong>${field}:</strong><p>${text}</p>`;
             }
+            
+            // Ajouter les images
             card.images.forEach(imgPath => {
                 content += `<img src="${imgPath}" alt="Image de la carte">`;
             });

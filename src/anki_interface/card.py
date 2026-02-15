@@ -23,7 +23,10 @@ class Card:
         # Planification SRS
         interval (int): Intervalle actuel en jours
         factor (int): Facteur de facilité (ease factor) brut (ex: 2600 = 260%)
-        due (int): Date de prochaine révision (format dépend du type)
+        due (int): Interprétation selon type :
+            - Review (type=2) : numéro de jour relatif à la création de la collection (crt)
+            - Learning/Relearning (type=1 ou 3) : timestamp Unix en secondes
+            → Utiliser get_due_date(crt) pour obtenir une date réelle
         type (int): Type de carte (0=new, 1=learning, 2=review, 3=relearning)
         queue (int): File d'attente (-3 à 3, voir documentation)
         
@@ -267,9 +270,16 @@ class Card:
             collection_creation = datetime.fromtimestamp(collection_creation_timestamp)
             return collection_creation + timedelta(days=self.due)
         elif self.type in [1, 3]:
-            # Learning/Relearning: due est un timestamp
+            # Learning/Relearning: due est un timestamp Unix (secondes)
+            # due=0 ou très petit => "à réviser maintenant", éviter 1970-01-01
+            if self.due <= 0:
+                return None
             try:
-                return datetime.fromtimestamp(self.due)
+                due_date = datetime.fromtimestamp(self.due)
+                # Timestamp avant 2000 = invalide (bug ou ancien format), ne pas afficher 1970
+                if due_date.year < 2000:
+                    return None
+                return due_date
             except (ValueError, OSError):
                 return None
         return None

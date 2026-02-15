@@ -220,6 +220,15 @@ function loadAllSavedCardsOnStartup() {
                         cardCounter = Math.max(cardCounter, savedPos.zIndex || 1);
                         
                         let content = '';
+                        if (card.type !== undefined && card.type_label) {
+                            const typeClass = card.type_label.toLowerCase().replace(' ', '-');
+                            content += '<div class="card-info">';
+                            content += `<span class="card-type ${typeClass}">${card.type_label}</span>`;
+                            if (card.due_display) {
+                                content += `<span class="card-due">${card.due_display}</span>`;
+                            }
+                            content += '</div>';
+                        }
                         for (const [field, text] of Object.entries(card.texts)) {
                             content += `<strong>${field}:</strong><p>${text}</p>`;
                         }

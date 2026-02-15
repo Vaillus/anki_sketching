@@ -6,7 +6,9 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import JSONResponse
 import json
 import os
+from datetime import datetime
 
+from src.anki_interface import Card, get_collection_crt, find_all_profiles
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.anki_interface.get_card_information import get_card_information
 from src.utilities.paths import get_positions_file, get_images_dir, ensure_dir_exists
@@ -14,6 +16,19 @@ from src.utilities.paths import get_positions_file, get_images_dir, ensure_dir_e
 
 # Crée le router
 router = APIRouter()
+
+# Cache pour le crt (évite de lire la DB à chaque requête)
+_cached_crt = None
+
+
+def get_crt():
+    """Récupère le crt de la collection (avec cache)."""
+    global _cached_crt
+    if _cached_crt is None:
+        _cached_crt = get_collection_crt()
+        if _cached_crt is not None:
+            print(f"Collection crt loaded: {_cached_crt} ({datetime.fromtimestamp(_cached_crt)})")
+    return _cached_crt
 
 
 @router.post("/save_positions")
@@ -50,9 +65,31 @@ async def load_positions():
         )
 
 
+@router.get("/collection_info")
+async def get_collection_info():
+    """Récupère les informations de la collection Anki."""
+    try:
+        crt = get_crt()
+        profiles = find_all_profiles()
+        
+        info = {
+            "success": True,
+            "crt": crt,
+            "crt_date": datetime.fromtimestamp(crt).isoformat() if crt else None,
+            "profiles": [{"name": name, "path": path} for name, path in profiles]
+        }
+        
+        return JSONResponse(info)
+    except Exception as e:
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+
 @router.post("/get_cards_by_ids")
 async def get_cards_by_ids(request: Request):
-    """Récupère les informations de cartes par leurs IDs."""
+    """Récupère les informations de cartes par leurs IDs avec planification."""
     try:
         data = await request.json()
         card_ids = data.get('card_ids', [])
@@ -62,14 +99,39 @@ async def get_cards_by_ids(request: Request):
         images_dir = get_images_dir()
         ensure_dir_exists(images_dir)
         
+        # Récupérer le crt pour calculer les dates
+        crt = get_crt()
+        
         cards_data = []
         for card_id in card_ids:
-            card_info = get_card_information(int(card_id), str(images_dir))
-            if card_info:
+            card = Card(int(card_id), load_images=True, image_output_dir=str(images_dir))
+            
+            if card.exists:
+                # due : Review = jour relatif à crt, Learning/Relearning = timestamp Unix
+                due_display = None
+                if card.type == 2 and crt:  # Review : due = jours depuis crt
+                    due_date = card.get_due_date(crt)
+                    if due_date:
+                        due_display = due_date.strftime('%Y-%m-%d')
+                elif card.type in [1, 3]:  # Learning/Relearning : due = timestamp (0 = à réviser)
+                    due_date = card.get_due_date()
+                    if due_date:
+                        due_display = due_date.strftime('%Y-%m-%d %H:%M')
+                    else:
+                        due_display = "À réviser"
+                else:  # New card
+                    due_display = "New"
+                
                 cards_data.append({
                     'card_id': card_id,
-                    'texts': card_info['texts'],
-                    'images': [f'/static/images/{os.path.basename(img)}' for img in card_info['images']]
+                    'texts': card.texts,
+                    'images': [f'/static/images/{os.path.basename(img)}' for img in card.images],
+                    'type': card.type,
+                    'type_label': card.type_label,
+                    'due': card.due,
+                    'due_display': due_display,
+                    'interval': card.interval,
+                    'factor_percent': card.factor_percent,
                 })
         
         return JSONResponse({"success": True, "cards": cards_data})
@@ -82,7 +144,7 @@ async def get_cards_by_ids(request: Request):
 
 @router.post("/import_deck")
 async def import_deck(deck_name: str = Form(...)):
-    """Importe un paquet de cartes Anki."""
+    """Importe un paquet de cartes Anki avec leurs informations de planification."""
     if not deck_name:
         raise HTTPException(status_code=400, detail="Nom du paquet manquant.")
 
@@ -96,14 +158,40 @@ async def import_deck(deck_name: str = Form(...)):
     images_dir = get_images_dir()
     ensure_dir_exists(images_dir)
     
+    # Récupérer le crt pour calculer les dates de révision
+    crt = get_crt()
+    
     cards_data = []
     for card_id in card_ids:
-        info = get_card_information(card_id, image_output_dir=str(images_dir))
-        if info:
+        # Utiliser la classe Card pour avoir accès aux infos de planification
+        card = Card(card_id, load_images=True, image_output_dir=str(images_dir))
+        
+        if card.exists:
+            # due est piégeux : Review = jour relatif à crt, Learning/Relearning = timestamp Unix
+            due_display = None
+            if card.type == 2 and crt:  # Review : due = jours depuis crt
+                due_date = card.get_due_date(crt)
+                if due_date:
+                    due_display = due_date.strftime('%Y-%m-%d')
+            elif card.type in [1, 3]:  # Learning/Relearning : due = timestamp (0 = à réviser)
+                due_date = card.get_due_date()
+                if due_date:
+                    due_display = due_date.strftime('%Y-%m-%d %H:%M')
+                else:
+                    due_display = "À réviser"
+            else:  # New card
+                due_display = "New"
+            
             cards_data.append({
                 "card_id": card_id,
-                "texts": info.get('texts', {}),
-                "images": info.get('images', [])
+                "texts": card.texts,
+                "images": [f'/static/images/{os.path.basename(img)}' for img in card.images],
+                "type": card.type,
+                "type_label": card.type_label,
+                "due": card.due,
+                "due_display": due_display,
+                "interval": card.interval,
+                "factor_percent": card.factor_percent,
             })
             
     return JSONResponse(cards_data)
