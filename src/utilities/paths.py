@@ -17,16 +17,26 @@ def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def get_data_dir() -> Path:
+    """
+    Retourne le chemin vers le dossier data du projet.
+
+    Returns:
+        Path: Chemin vers data/
+    """
+    data_dir = get_project_root() / "data"
+    ensure_dir_exists(data_dir)
+    return data_dir
+
+
 def get_positions_file() -> Path:
     """
     Retourne le chemin vers le fichier de sauvegarde des positions.
-    
+
     Returns:
         Path: Chemin vers data/card_positions.json
     """
-    data_dir = get_project_root() / 'data'
-    ensure_dir_exists(data_dir)
-    return data_dir / 'card_positions.json'
+    return get_data_dir() / "card_positions.json"
 
 
 def get_images_dir() -> Path:
