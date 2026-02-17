@@ -127,7 +127,7 @@ body {
 
 #info-panel {
     position: fixed;
-    bottom: 10px;
+    bottom: 155px;
     left: 10px;
     z-index: 10000;
     background: rgba(33, 23, 87, 0.9);
@@ -172,7 +172,7 @@ body {
 
 #selection-toolbar {
     position: fixed;
-    bottom: 60px;
+    bottom: 160px;
     left: 10px;
     z-index: 10000;
     background: #2b1f6b;
@@ -368,3 +368,164 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ===== Due cards bottom bar ===== */
+
+#due-cards-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 145px;
+    z-index: 9999;
+    background: rgba(21, 12, 58, 0.97);
+    border-top: 1px solid #3a2b86;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    -webkit-user-select: auto;
+    user-select: auto;
+}
+
+#due-cards-header {
+    display: flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-bottom: 1px solid #3a2b86;
+    flex-shrink: 0;
+    gap: 10px;
+}
+
+#due-cards-title {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #b4a8ff;
+}
+
+#due-cards-count {
+    font-size: 11px;
+    color: #7a6eaa;
+    flex: 1;
+}
+
+#due-cards-refresh {
+    background: none;
+    border: 1px solid #3a2b86;
+    color: #b4a8ff;
+    border-radius: 4px;
+    padding: 2px 7px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+#due-cards-refresh:hover {
+    background: #2b1f6b;
+}
+
+#due-cards-list {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex: 1;
+    align-items: stretch;
+}
+
+#due-cards-list::-webkit-scrollbar {
+    height: 4px;
+}
+
+#due-cards-list::-webkit-scrollbar-track {
+    background: #150c3a;
+}
+
+#due-cards-list::-webkit-scrollbar-thumb {
+    background: #3a2b86;
+    border-radius: 2px;
+}
+
+.due-card-chip {
+    flex-shrink: 0;
+    width: 190px;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    overflow: hidden;
+}
+
+.due-card-chip:hover {
+    background: #34257a;
+    border-color: #5a4aaa;
+}
+
+.due-card-chip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+.due-card-chip-date {
+    font-size: 10px;
+    color: #7a6eaa;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.due-card-chip-text {
+    font-size: 11px;
+    color: #c8c0f0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+}
+
+.due-cards-empty {
+    color: #7a6eaa;
+    font-size: 12px;
+    align-self: center;
+    padding: 0 4px;
+}
+
+.due-cards-loading {
+    color: #7a6eaa;
+    font-size: 12px;
+    align-self: center;
+    font-style: italic;
+}
+
+/* ===== Anki connection status ===== */
+
+#anki-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+#anki-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+    flex-shrink: 0;
+}
+
+#anki-status.connected #anki-status-dot { background: #4CAF50; }
+#anki-status.disconnected #anki-status-dot { background: #f44336; }
+#anki-status.connected #anki-status-label { color: #a5d6a7; }
+#anki-status.disconnected #anki-status-label { color: #ef9a9a; }

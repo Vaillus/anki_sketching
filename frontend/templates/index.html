@@ -10,6 +10,10 @@
 
     <div id="toolbar">
         <h3 style="margin: 0 0 10px 0;">Anki Sketching</h3>
+        <div id="anki-status">
+            <span id="anki-status-dot"></span>
+            <span id="anki-status-label">Vérification…</span>
+        </div>
         <form id="import-form">
             <select id="deck-name" name="deck_name" required>
                 <option value="" disabled selected>Choisir un paquet</option>
@@ -49,6 +53,16 @@
         <div class="menu-item" id="context-bring-front">Mettre au premier plan</div>
     </div>
 
+    <!-- Barre des cartes à réviser -->
+    <div id="due-cards-bar">
+        <div id="due-cards-header">
+            <span id="due-cards-title">À réviser</span>
+            <span id="due-cards-count"></span>
+            <button id="due-cards-refresh" type="button" title="Rafraîchir">↺</button>
+        </div>
+        <div id="due-cards-list"></div>
+    </div>
+
     <!-- Barre d'outils de sélection -->
     <div id="selection-toolbar">
         <span id="selection-count">0 carte(s) sélectionnée(s)</span>
@@ -67,6 +81,8 @@
     <script src="/static/js/storage.js?v=20260208"></script>
     <script src="/static/js/cards.js"></script>
     <script src="/static/js/bootstrap.js"></script>
+    <script src="/static/js/due_cards.js"></script>
+    <script src="/static/js/anki_status.js"></script>
 
 </body>
 </html>

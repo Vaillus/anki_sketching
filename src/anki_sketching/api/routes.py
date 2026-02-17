@@ -6,12 +6,13 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import JSONResponse
 import json
 import os
+import sqlite3
 from datetime import datetime
 
-from src.anki_interface import Card, get_collection_crt, find_all_profiles
+from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.anki_interface.get_card_information import get_card_information
-from src.utilities.paths import get_positions_file, get_images_dir, ensure_dir_exists
+from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
 
 
 # Crée le router
@@ -29,6 +30,14 @@ def get_crt():
         if _cached_crt is not None:
             print(f"Collection crt loaded: {_cached_crt} ({datetime.fromtimestamp(_cached_crt)})")
     return _cached_crt
+
+
+@router.get("/anki_status")
+async def anki_status():
+    """Vérifie si Anki est connecté via AnkiConnect."""
+    result = anki_request('deckNames')
+    connected = result is not None
+    return JSONResponse({"connected": connected})
 
 
 @router.post("/save_positions")
@@ -195,3 +204,62 @@ async def import_deck(deck_name: str = Form(...)):
             })
             
     return JSONResponse(cards_data)
+
+
+@router.get("/due_cards")
+async def get_due_cards():
+    """Retourne les cartes non bloquées à réviser aujourd'hui et les nouvelles non bloquées."""
+    db_path = get_data_dir() / "graph.db"
+    if not db_path.exists():
+        return JSONResponse({"success": True, "cards": [], "total": 0})
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.execute("""
+            SELECT card_id, card_type, due_date
+            FROM card_state
+            WHERE is_blocked = 0
+              AND queue >= 0
+              AND (
+                card_type = 0
+                OR (due_date IS NULL AND card_type IN (1, 3))
+                OR (due_date IS NOT NULL AND due_date <= datetime('now'))
+              )
+            ORDER BY
+              CASE
+                WHEN due_date IS NULL AND card_type IN (1, 3) THEN 0
+                WHEN due_date IS NOT NULL THEN 1
+                ELSE 2
+              END,
+              due_date ASC
+        """)
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return JSONResponse({"success": True, "cards": [], "total": 0})
+
+    cards_data = []
+    for card_id, card_type, due_date in rows:
+        card = Card(int(card_id), load_images=False)
+        if not card.exists:
+            continue
+
+        if card_type == 0:
+            due_display = "New"
+        elif due_date is None:
+            due_display = "À réviser"
+        else:
+            due_display = due_date[:10]  # YYYY-MM-DD
+
+        cards_data.append({
+            "card_id": card_id,
+            "texts": card.texts,
+            "type": card_type,
+            "type_label": card.type_label,
+            "due_date": due_date,
+            "due_display": due_display,
+        })
+
+    return JSONResponse({"success": True, "cards": cards_data, "total": len(cards_data)})
