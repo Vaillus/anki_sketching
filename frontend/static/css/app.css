@@ -451,17 +451,46 @@ body {
 
 .due-card-chip {
     flex-shrink: 0;
-    width: 190px;
+    width: 240px;
     background: #2b1f6b;
     border: 1px solid #3a2b86;
     border-radius: 6px;
-    padding: 6px 8px;
     cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 0;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    overflow: hidden;
+}
+
+.chip-thumb {
+    width: 70px;
+    min-width: 70px;
+    background: #1a1330;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chip-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chip-thumb--empty {
+    background: #1e1545;
+}
+
+.chip-content {
+    flex: 1;
+    padding: 6px 8px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    transition: border-color 0.15s ease, background 0.15s ease;
-    overflow: hidden;
+    min-width: 0;
 }
 
 .due-card-chip:hover {

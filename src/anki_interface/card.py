@@ -59,6 +59,7 @@ class Card:
         # Contenu
         self.texts: Dict[str, str] = {}
         self.images: List[str] = []
+        self.image_filenames: List[str] = []  # Basenames, always populated (no download)
         
         # Planification SRS
         self.interval: int = 0
@@ -114,16 +115,24 @@ class Card:
             text_content = re.sub(r'<[^>]+>', '', html_content).strip()
             if text_content:
                 self.texts[field_name] = text_content
-            
-            # Extraire et télécharger les images si demandé
+
+            # Toujours extraire les noms de fichiers images (sans télécharger)
+            for filename in re.findall(img_regex, html_content):
+                if filename not in self.image_filenames:
+                    self.image_filenames.append(filename)
+
+            # Télécharger les images si demandé
             if load_images and image_output_dir:
                 image_filenames = re.findall(img_regex, html_content)
                 for filename in image_filenames:
+                    output_path = os.path.join(image_output_dir, filename)
+                    if os.path.exists(output_path):
+                        self.images.append(output_path)
+                        continue
                     image_data_b64 = anki_request('retrieveMediaFile', filename=filename)
                     if image_data_b64:
                         try:
                             image_data = base64.b64decode(image_data_b64)
-                            output_path = os.path.join(image_output_dir, filename)
                             with open(output_path, 'wb') as f:
                                 f.write(image_data)
                             self.images.append(output_path)

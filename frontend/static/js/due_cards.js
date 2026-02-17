@@ -37,12 +37,19 @@ async function loadDueCards() {
             const typeClass = card.type_label.toLowerCase();
             const firstText = Object.values(card.texts)[0] || '(sans texte)';
 
+            const thumbHtml = (card.images && card.images.length > 0)
+                ? `<div class="chip-thumb"><img src="${card.images[0]}" alt=""></div>`
+                : `<div class="chip-thumb chip-thumb--empty"></div>`;
+
             chip.innerHTML = `
-                <div class="due-card-chip-header">
-                    <span class="card-type ${typeClass}">${card.type_label}</span>
-                    <span class="due-card-chip-date">${card.due_display}</span>
+                ${thumbHtml}
+                <div class="chip-content">
+                    <div class="due-card-chip-header">
+                        <span class="card-type ${typeClass}">${card.type_label}</span>
+                        <span class="due-card-chip-date">${card.due_display}</span>
+                    </div>
+                    <div class="due-card-chip-text">${firstText}</div>
                 </div>
-                <div class="due-card-chip-text">${firstText}</div>
             `;
 
             list.appendChild(chip);

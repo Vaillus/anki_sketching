@@ -253,9 +253,17 @@ async def get_due_cards():
         else:
             due_display = due_date[:10]  # YYYY-MM-DD
 
+        images_dir = get_images_dir()
+        images = [
+            f'/static/images/{fn}'
+            for fn in card.image_filenames
+            if (images_dir / fn).exists()
+        ]
+
         cards_data.append({
             "card_id": card_id,
             "texts": card.texts,
+            "images": images,
             "type": card_type,
             "type_label": card.type_label,
             "due_date": due_date,
