@@ -25,6 +25,10 @@ uv run python check_card_due.py [card_id]
 
 The app is available at `http://localhost:5000`. There are no automated tests.
 
+## Git
+
+- Never add `Co-Authored-By: Claude` or any Claude/Anthropic attribution to commit messages.
+
 ## Architecture
 
 ### Backend (FastAPI)
