@@ -43,3 +43,33 @@ def sync_anki_state(
             ),
         )
     db_conn.commit()
+
+
+def sync_single_card(
+    db_conn: sqlite3.Connection,
+    crt: Optional[int],
+    card_id: Union[int, str],
+) -> None:
+    """
+    Met à jour l'état d'une seule carte dans card_state depuis Anki.
+    Ne touche pas aux autres cartes ni aux flags is_blocking/is_blocked
+    (appeler compute_blocking_states ensuite pour les recalculer).
+
+    Args:
+        db_conn: Connexion SQLite
+        crt: Timestamp de création de la collection (pour les cartes Review)
+        card_id: ID de la carte à mettre à jour
+    """
+    card = Card(int(card_id), load_images=False)
+    if not card.exists:
+        return
+    due_date = card.get_due_date(crt) if crt else card.get_due_date()
+    due_date_str = due_date.isoformat() if due_date else None
+
+    db_conn.execute(
+        """UPDATE card_state
+           SET card_type = ?, queue = ?, due_date = ?, raw_due = ?
+           WHERE card_id = ?""",
+        (card.type, card.queue, due_date_str, card.due, str(card_id)),
+    )
+    db_conn.commit()

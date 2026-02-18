@@ -13,6 +13,8 @@ from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.anki_interface.get_card_information import get_card_information
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
+from src.graph.sync_card_state import sync_single_card
+from src.graph.blocking import compute_blocking_states
 
 
 # Crée le router
@@ -290,6 +292,17 @@ async def review_card(request: Request):
 
     result = anki_request('answerCards', answers=[{"cardId": int(card_id), "ease": int(ease)}])
     success = bool(result and result[0])
+
+    if success:
+        db_path = get_data_dir() / "graph.db"
+        if db_path.exists():
+            conn = sqlite3.connect(str(db_path))
+            try:
+                sync_single_card(conn, get_crt(), card_id)
+                compute_blocking_states(conn)
+            finally:
+                conn.close()
+
     return JSONResponse({"success": success})
 
 
