@@ -82,18 +82,23 @@
         currentCard = card;
         const modal = getOrCreateModal();
 
-        // Recto
-        const frontFields = Object.entries(card.texts);
-        const frontHtml = frontFields.length > 0
-            ? frontFields.map(([name, text]) =>
+        // Recto : premier champ + images
+        const allFields = Object.entries(card.texts);
+        const firstField = allFields.slice(0, 1);
+        const remainingFields = allFields.slice(1);
+
+        const renderFields = (fields) => fields.length > 0
+            ? fields.map(([name, text]) =>
                 `<div class="reviewer-field"><div class="reviewer-field-name">${name}</div><div class="reviewer-field-value">${text}</div></div>`
               ).join('')
-            : '<div class="reviewer-field-value">(sans texte)</div>';
+            : '';
 
-        // Images du recto (on affiche toutes les images disponibles)
         const imagesHtml = (card.images && card.images.length > 0)
             ? card.images.map(src => `<img src="${src}" class="reviewer-image" alt="">`).join('')
             : '';
+
+        const frontHtml = renderFields(firstField) || '<div class="reviewer-field-value">(sans texte)</div>';
+        const backHtml = renderFields(remainingFields) || '<div class="reviewer-field-value">(sans champ supplémentaire)</div>';
 
         document.getElementById('reviewer-front').innerHTML = `
             <div class="reviewer-section-label">Recto</div>
@@ -101,13 +106,11 @@
             ${imagesHtml ? `<div class="reviewer-images">${imagesHtml}</div>` : ''}
         `;
 
-        // Verso (pour l'instant on n'a pas de distinction recto/verso via l'API actuelle)
-        // On affiche tous les champs au verso aussi mais l'ensemble complet
+        // Verso : champs restants (les images sont déjà au recto)
         document.getElementById('reviewer-back').innerHTML = `
             <div class="reviewer-divider"></div>
             <div class="reviewer-section-label">Verso</div>
-            ${frontHtml}
-            ${imagesHtml ? `<div class="reviewer-images">${imagesHtml}</div>` : ''}
+            ${backHtml}
         `;
 
         // Intervalles next_reviews
