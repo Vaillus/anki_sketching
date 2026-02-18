@@ -563,3 +563,191 @@ body {
 #anki-status.disconnected #anki-status-dot { background: #f44336; }
 #anki-status.connected #anki-status-label { color: #a5d6a7; }
 #anki-status.disconnected #anki-status-label { color: #ef9a9a; }
+
+/* ===== Reviewer modal ===== */
+
+#reviewer-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+#reviewer-backdrop.visible {
+    display: flex;
+}
+
+#reviewer-panel {
+    position: relative;
+    background: #1e1545;
+    border: 1px solid #3a2b86;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+    width: min(620px, 92vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#reviewer-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #7a6eaa;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+#reviewer-close:hover {
+    background: #2b1f6b;
+    color: #f1eeff;
+}
+
+.reviewer-section-label {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #5a4aaa;
+    margin-bottom: 8px;
+}
+
+.reviewer-field {
+    margin-bottom: 10px;
+}
+
+.reviewer-field-name {
+    font-size: 10px;
+    color: #5a4aaa;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.reviewer-field-value {
+    font-size: 15px;
+    color: #f1eeff;
+    line-height: 1.5;
+}
+
+.reviewer-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.reviewer-image {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 6px;
+    object-fit: contain;
+}
+
+#reviewer-show-answer-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+#reviewer-show-answer {
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    color: #f1eeff;
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+#reviewer-show-answer:hover {
+    background: #34257a;
+}
+
+.reviewer-divider {
+    border-top: 1px solid #3a2b86;
+    margin: 4px 0;
+}
+
+#reviewer-ease-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.ease-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    min-width: 80px;
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.ease-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.ease-btn:active {
+    transform: translateY(0);
+}
+
+.ease-again  { background: #c0392b; }
+.ease-hard   { background: #d67c22; }
+.ease-good   { background: #27ae60; }
+.ease-easy   { background: #2980b9; }
+
+.ease-label {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.ease-interval {
+    font-size: 11px;
+    opacity: 0.85;
+    font-weight: normal;
+}
+
+#reviewer-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    border-top: 1px solid #2b1f6b;
+    padding-top: 12px;
+}
+
+.stat-item {
+    font-size: 11px;
+    color: #7a6eaa;
+}
+
+.stat-item:empty {
+    display: none;
+}
+
+.hidden {
+    display: none !important;
+}

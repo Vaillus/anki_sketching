@@ -268,9 +268,29 @@ async def get_due_cards():
             "type_label": card.type_label,
             "due_date": due_date,
             "due_display": due_display,
+            "next_reviews": card.next_reviews,
+            "interval": card.interval,
+            "factor_percent": card.factor_percent,
+            "reps": card.reps,
+            "lapses": card.lapses,
         })
 
     return JSONResponse({"success": True, "cards": cards_data, "total": len(cards_data)})
+
+
+@router.post("/review_card")
+async def review_card(request: Request):
+    """Soumet une réponse de révision pour une carte via AnkiConnect."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    ease = data.get("ease")  # 1=Again, 2=Hard, 3=Good, 4=Easy
+
+    if card_id is None or ease is None:
+        return JSONResponse({"success": False, "error": "card_id et ease sont requis"}, status_code=400)
+
+    result = anki_request('answerCards', answers=[{"cardId": int(card_id), "ease": int(ease)}])
+    success = bool(result and result[0])
+    return JSONResponse({"success": success})
 
 
 @router.get("/blocking_cards")
