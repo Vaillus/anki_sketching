@@ -271,3 +271,25 @@ async def get_due_cards():
         })
 
     return JSONResponse({"success": True, "cards": cards_data, "total": len(cards_data)})
+
+
+@router.get("/blocking_cards")
+async def get_blocking_cards():
+    """Retourne les IDs des cartes qui bloquent d'autres cartes (is_blocking=1, is_blocked=0)."""
+    db_path = get_data_dir() / "graph.db"
+    if not db_path.exists():
+        return JSONResponse({"success": True, "card_ids": []})
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.execute("""
+            SELECT card_id FROM card_state
+            WHERE is_blocking = 1
+              AND is_blocked = 0
+              AND queue >= 0
+        """)
+        card_ids = [row[0] for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    return JSONResponse({"success": True, "card_ids": card_ids})

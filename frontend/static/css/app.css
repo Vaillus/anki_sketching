@@ -116,6 +116,11 @@ body {
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
 }
 
+.card-box.card-blocking {
+    border-color: #e87c2a;
+    box-shadow: 0 0 10px rgba(232, 124, 42, 0.45);
+}
+
 .card-box:hover {
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }

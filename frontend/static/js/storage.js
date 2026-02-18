@@ -291,6 +291,9 @@ function loadAllSavedCardsOnStartup() {
                     if (data.positions.arrows) {
                         restoreSavedArrows(data.positions.arrows);
                     }
+
+                    // Surbrillance des cartes bloquantes
+                    applyBlockingHighlights();
                 }
             });
         }
@@ -298,6 +301,19 @@ function loadAllSavedCardsOnStartup() {
     .catch(error => {
         console.error('Erreur lors du chargement des cartes sauvegardées:', error);
     });
+}
+
+function applyBlockingHighlights() {
+    fetch('/blocking_cards')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            data.card_ids.forEach(cardId => {
+                const el = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (el) el.classList.add('card-blocking');
+            });
+        })
+        .catch(err => console.error('blocking_cards: failed to load', err));
 }
 
 function loadAllSavedCards() {
