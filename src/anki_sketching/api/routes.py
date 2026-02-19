@@ -298,7 +298,7 @@ async def review_card(request: Request):
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             try:
-                sync_single_card(conn, get_crt(), card_id)
+                rows = sync_single_card(conn, get_crt(), card_id)
                 compute_blocking_states(conn)
             finally:
                 conn.close()
