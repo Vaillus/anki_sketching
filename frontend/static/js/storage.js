@@ -304,6 +304,7 @@ function loadAllSavedCardsOnStartup() {
 }
 
 function applyBlockingHighlights() {
+    document.querySelectorAll('.card-blocking').forEach(el => el.classList.remove('card-blocking'));
     fetch('/blocking_cards')
         .then(r => r.json())
         .then(data => {

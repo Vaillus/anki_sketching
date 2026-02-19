@@ -13,6 +13,8 @@ from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.anki_interface.get_card_information import get_card_information
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
+from src.graph.sync_card_state import sync_single_card
+from src.graph.blocking import compute_blocking_states
 
 
 # Crée le router
@@ -268,9 +270,40 @@ async def get_due_cards():
             "type_label": card.type_label,
             "due_date": due_date,
             "due_display": due_display,
+            "next_reviews": card.next_reviews,
+            "interval": card.interval,
+            "factor_percent": card.factor_percent,
+            "reps": card.reps,
+            "lapses": card.lapses,
         })
 
     return JSONResponse({"success": True, "cards": cards_data, "total": len(cards_data)})
+
+
+@router.post("/review_card")
+async def review_card(request: Request):
+    """Soumet une réponse de révision pour une carte via AnkiConnect."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    ease = data.get("ease")  # 1=Again, 2=Hard, 3=Good, 4=Easy
+
+    if card_id is None or ease is None:
+        return JSONResponse({"success": False, "error": "card_id et ease sont requis"}, status_code=400)
+
+    result = anki_request('answerCards', answers=[{"cardId": int(card_id), "ease": int(ease)}])
+    success = bool(result and result[0])
+
+    if success:
+        db_path = get_data_dir() / "graph.db"
+        if db_path.exists():
+            conn = sqlite3.connect(str(db_path))
+            try:
+                rows = sync_single_card(conn, get_crt(), card_id)
+                compute_blocking_states(conn)
+            finally:
+                conn.close()
+
+    return JSONResponse({"success": success})
 
 
 @router.get("/blocking_cards")

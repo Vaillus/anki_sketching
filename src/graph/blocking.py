@@ -14,18 +14,18 @@ def _is_blocking_row(
     """Retourne True si la carte est bloquante selon type, queue et due_date."""
     if queue in (-3, -2, -1):
         return False
-    if card_type in (0, 1, 3):
-        return True
-    if card_type != 2:
-        return False
-    if due_date_str is None:
-        return True
-    try:
-        dt = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-        due_date = dt.date() if hasattr(dt, "date") else date(dt.year, dt.month, dt.day)
-        return due_date <= date.today()
-    except (ValueError, TypeError):
-        return True
+    if card_type == 0:
+        return True  # new cards always block
+    if card_type in (1, 2, 3):
+        if due_date_str is None:
+            return True  # due now
+        try:
+            dt = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+            due_date = dt.date() if hasattr(dt, "date") else date(dt.year, dt.month, dt.day)
+            return due_date <= date.today()
+        except (ValueError, TypeError):
+            return True
+    return False
 
 
 def _get_children(db_conn: sqlite3.Connection, parent_card_id: str) -> List[str]:

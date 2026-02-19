@@ -52,6 +52,10 @@ async function loadDueCards() {
                 </div>
             `;
 
+            chip.addEventListener('click', () => {
+                if (typeof openReviewer === 'function') openReviewer(card);
+            });
+
             list.appendChild(chip);
         });
 
