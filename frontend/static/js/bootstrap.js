@@ -8,6 +8,24 @@ document.getElementById('import-form').addEventListener('submit', function(event
 // Gestionnaire pour le bouton de sauvegarde
 document.getElementById('save-positions').addEventListener('click', saveCardPositions);
 
+// Gestionnaire pour le bouton désapprendre lointaines
+document.getElementById('reschedule-distant').addEventListener('click', async function() {
+    if (!confirm('Ramener à aujourd\'hui toutes les cartes dues dans plus de 5 jours ?')) return;
+    try {
+        const res = await fetch('/reschedule_distant_cards', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(`${data.rescheduled} carte(s) ramenée(s) à aujourd'hui.`);
+            applyBlockingHighlights();
+            loadDueCards();
+        } else {
+            alert('Erreur : ' + (data.error || 'inconnue'));
+        }
+    } catch (e) {
+        alert('Erreur réseau : ' + e.message);
+    }
+});
+
 // Gestionnaire pour le bouton vider le canvas
 document.getElementById('clear-canvas').addEventListener('click', function() {
     if (confirm('Voulez-vous vraiment vider le canvas ? Toutes les cartes seront supprimées.')) {
@@ -69,6 +87,40 @@ document.getElementById('context-delete').addEventListener('click', () => {
 document.getElementById('context-bring-front').addEventListener('click', () => {
     if (contextMenu.targetCard) {
         contextMenu.targetCard.style.zIndex = ++cardCounter;
+    }
+    hideContextMenu();
+});
+
+// Menu contextuel - Désapprendre
+document.getElementById('context-unlearn').addEventListener('click', async () => {
+    if (contextMenu.targetCard && !contextMenu.targetCard.isGroup) {
+        const cardId = contextMenu.targetCard.getAttribute('data-card-id');
+        try {
+            await fetch('/reschedule_card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_id: cardId })
+            });
+            // Met à jour la date affichée sur la carte
+            const infoRes = await fetch('/get_cards_by_ids', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_ids: [cardId] })
+            });
+            const infoData = await infoRes.json();
+            if (infoData.success && infoData.cards.length > 0) {
+                const updated = infoData.cards[0];
+                const cardEl = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardEl) {
+                    const dueEl = cardEl.querySelector('.card-due');
+                    if (dueEl) dueEl.textContent = updated.due_display || '';
+                }
+            }
+            applyBlockingHighlights();
+            loadDueCards();
+        } catch (e) {
+            console.error('Erreur désapprendre:', e);
+        }
     }
     hideContextMenu();
 });

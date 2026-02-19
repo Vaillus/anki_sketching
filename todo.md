@@ -1,0 +1,6 @@
+- [x] Rendre les flèches supprimables.
+- [x] Faire en sorte que le texte des flashcards soit sélectionnable dans l'interface principale.
+- [ ] quand je sauvegarde les nouvelles positions, ca doit trigger le reste : blocking, etc
+- [x] le fleches qui bug au debut
+- [x] Rapprocher à aujourd'hui toutes les cartes qui sont à faire dans plus de cinq jours.
+- [ ] refactor le backend, notemment le trigger de blocked et bottom bar

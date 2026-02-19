@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
 from src.anki_interface.get_cards_ids import get_cards_ids
@@ -225,7 +225,7 @@ async def get_due_cards():
               AND (
                 card_type = 0
                 OR (due_date IS NULL AND card_type IN (1, 3))
-                OR (due_date IS NOT NULL AND due_date <= datetime('now'))
+                OR (due_date IS NOT NULL AND date(due_date) <= date('now', 'localtime'))
               )
             ORDER BY
               CASE
@@ -304,6 +304,79 @@ async def review_card(request: Request):
                 conn.close()
 
     return JSONResponse({"success": success})
+
+
+@router.post("/reschedule_card")
+async def reschedule_card(request: Request):
+    """Ramène une carte à aujourd'hui via setDueDate."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    if card_id is None:
+        return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
+
+    result = anki_request("setDueDate", cards=[int(card_id)], days="0")
+
+    db_path = get_data_dir() / "graph.db"
+    if db_path.exists():
+        conn = sqlite3.connect(str(db_path))
+        try:
+            sync_single_card(conn, get_crt(), card_id)
+            compute_blocking_states(conn)
+        finally:
+            conn.close()
+
+    return JSONResponse({"success": True})
+
+
+@router.post("/reschedule_distant_cards")
+async def reschedule_distant_cards():
+    """Ramène à aujourd'hui toutes les cartes du canvas dues dans > 5 jours."""
+    try:
+        positions_file = get_positions_file()
+        if not positions_file.exists():
+            return JSONResponse({"success": True, "rescheduled": 0})
+        with open(positions_file) as f:
+            state = json.load(f)
+        card_ids = [int(cid) for cid in state.get("cards", {}).keys()]
+        if not card_ids:
+            return JSONResponse({"success": True, "rescheduled": 0})
+
+        cards_info = anki_request("cardsInfo", cards=card_ids)
+        if not cards_info:
+            return JSONResponse({"success": False, "error": "Impossible de contacter Anki"}, status_code=503)
+
+        crt = get_crt()
+        threshold = datetime.now() + timedelta(days=5)
+        to_reschedule = []
+        for card_data in cards_info:
+            if card_data.get("type") != 2:
+                continue
+            if card_data.get("queue", 0) < 0:  # suspended/buried
+                continue
+            if crt is None:
+                continue
+            due_date = datetime.fromtimestamp(crt) + timedelta(days=card_data["due"])
+            if due_date > threshold:
+                to_reschedule.append(card_data["cardId"])
+
+        if not to_reschedule:
+            return JSONResponse({"success": True, "rescheduled": 0})
+
+        anki_request("setDueDate", cards=to_reschedule, days="0")
+
+        db_path = get_data_dir() / "graph.db"
+        if db_path.exists():
+            conn = sqlite3.connect(str(db_path))
+            try:
+                for card_id in to_reschedule:
+                    sync_single_card(conn, get_crt(), card_id)
+                compute_blocking_states(conn)
+            finally:
+                conn.close()
+
+        return JSONResponse({"success": True, "rescheduled": len(to_reschedule)})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 @router.get("/blocking_cards")
