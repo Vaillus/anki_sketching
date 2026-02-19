@@ -279,10 +279,16 @@ class Card:
             collection_creation = datetime.fromtimestamp(collection_creation_timestamp)
             return collection_creation + timedelta(days=self.due)
         elif self.type in [1, 3]:
-            # Learning/Relearning: due est un timestamp Unix (secondes)
-            # due=0 ou très petit => "à réviser maintenant", éviter 1970-01-01
+            # Learning/Relearning: due peut être soit :
+            #   - Un timestamp Unix (secondes) avec le scheduler classique, ex: 1700000000
+            #   - Un numéro de jour relatif au CRT avec FSRS, ex: 1105
+            # Heuristique : si due < 1_000_000, c'est un offset en jours (FSRS).
             if self.due <= 0:
                 return None
+            if self.due < 1_000_000 and collection_creation_timestamp:
+                # FSRS day-based due: même logique que type=2
+                collection_creation = datetime.fromtimestamp(collection_creation_timestamp)
+                return collection_creation + timedelta(days=self.due)
             try:
                 due_date = datetime.fromtimestamp(self.due)
                 # Timestamp avant 2000 = invalide (bug ou ancien format), ne pas afficher 1970
