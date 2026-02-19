@@ -5,19 +5,21 @@ function getArrowElementById(elementId) {
         document.querySelector(`[data-group-id="${elementId}"]`);
 }
 
-function attachArrowRefreshOnImageLoad() {
-    const images = canvas.querySelectorAll('img');
-    images.forEach((img) => {
-        if (img.complete) return;
-        img.addEventListener('load', updateAllArrows, { once: true });
-    });
-}
-
 function scheduleArrowLayoutRefresh() {
-    updateAllArrows();
-    requestAnimationFrame(updateAllArrows);
-    setTimeout(updateAllArrows, 0);
-    attachArrowRefreshOnImageLoad();
+    const images = Array.from(canvas.querySelectorAll('img'));
+    const pending = images.filter(img => !img.complete);
+
+    if (pending.length === 0) {
+        requestAnimationFrame(updateAllArrows);
+        return;
+    }
+
+    const promises = pending.map(img => new Promise(resolve => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+    }));
+
+    Promise.all(promises).then(() => requestAnimationFrame(updateAllArrows));
 }
 
 function restoreSavedArrows(arrowsData) {
@@ -247,7 +249,10 @@ function loadAllSavedCardsOnStartup() {
                         canvasX = data.positions.canvas.x || 0;
                         canvasY = data.positions.canvas.y || 0;
                         zoom = data.positions.canvas.zoom || 1;
+                        canvas.style.transition = 'none';
                         updateCanvasTransform();
+                        canvas.offsetHeight; // force reflow — applique le transform immédiatement
+                        canvas.style.transition = '';
                     }
                     
                     console.log(`${cardsData.cards.length} cartes restaurées depuis la sauvegarde`);
