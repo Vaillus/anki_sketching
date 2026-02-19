@@ -189,13 +189,27 @@ function buildArrowSvg(arrowId, enableContextMenu) {
     path.setAttribute('fill', 'none');
     path.setAttribute('marker-end', `url(#${markerId})`);
     path.setAttribute('data-arrow-id', arrowId);
-    path.style.pointerEvents = enableContextMenu ? 'stroke' : 'none';
-    if (enableContextMenu) {
-        path.addEventListener('contextmenu', handleArrowContextMenu);
-    }
+    path.style.pointerEvents = 'none';
     arrowElement.appendChild(path);
-    
-    return { element: arrowElement, path: path, markerId: markerId };
+
+    let hitPath = null;
+    if (enableContextMenu) {
+        hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        hitPath.setAttribute('stroke', 'transparent');
+        hitPath.setAttribute('stroke-width', '20');
+        hitPath.setAttribute('fill', 'none');
+        hitPath.setAttribute('data-arrow-id', arrowId);
+        hitPath.style.pointerEvents = 'stroke';
+        hitPath.style.cursor = 'pointer';
+        hitPath.addEventListener('contextmenu', handleArrowContextMenu);
+        hitPath.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleArrowSelection(arrowId);
+        });
+        arrowElement.appendChild(hitPath);
+    }
+
+    return { element: arrowElement, path: path, hitPath: hitPath, markerId: markerId };
 }
 
 function createArrow(fromElementId, toElementId, fromAnchorType, toAnchorType) {
@@ -212,6 +226,7 @@ function createArrow(fromElementId, toElementId, fromAnchorType, toAnchorType) {
         toAnchor: toAnchorType,
         element: arrowSvg.element,
         path: arrowSvg.path,
+        hitPath: arrowSvg.hitPath,
         markerId: arrowSvg.markerId
     });
     
@@ -405,10 +420,9 @@ function updateArrowSvgPath(arrowSvg, startPos, endPos, fromAnchorType, toAnchor
     const cp1Y = cp1AbsY - paddedMinY;
     const cp2X = cp2AbsX - paddedMinX;
     const cp2Y = cp2AbsY - paddedMinY;
-    arrowSvg.path.setAttribute(
-        'd',
-        `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`
-    );
+    const d = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
+    arrowSvg.path.setAttribute('d', d);
+    if (arrowSvg.hitPath) arrowSvg.hitPath.setAttribute('d', d);
 }
 
 function getMouseCanvasPosition(clientX, clientY) {
@@ -461,9 +475,42 @@ function handleArrowContextMenu(e) {
     }
 }
 
+function setArrowColor(arrow, color) {
+    arrow.path.setAttribute('stroke', color);
+    arrow.element.querySelector('polygon')?.setAttribute('fill', color);
+}
+
+function toggleArrowSelection(arrowId) {
+    const arrow = arrows.get(arrowId);
+    if (!arrow) return;
+    if (selectedArrows.has(arrowId)) {
+        selectedArrows.delete(arrowId);
+        setArrowColor(arrow, '#2196F3');
+    } else {
+        selectedArrows.add(arrowId);
+        setArrowColor(arrow, '#FF5252');
+    }
+}
+
+function deselectAllArrows() {
+    selectedArrows.forEach((arrowId) => {
+        const arrow = arrows.get(arrowId);
+        if (arrow) setArrowColor(arrow, '#2196F3');
+    });
+    selectedArrows.clear();
+}
+
+function deleteSelectedArrows() {
+    if (selectedArrows.size === 0) return;
+    const toDelete = Array.from(selectedArrows);
+    selectedArrows.clear();
+    toDelete.forEach((arrowId) => deleteArrow(arrowId));
+}
+
 function deleteArrow(arrowId) {
     const arrow = arrows.get(arrowId);
     if (!arrow) return;
+    selectedArrows.delete(arrowId);
     if (arrow.element && arrow.element.parentNode) {
         arrow.element.parentNode.removeChild(arrow.element);
     }

@@ -21,6 +21,7 @@ let isCreatingArrow = false; // Mode création de flèche
 let arrowStart = null; // Point de départ de la flèche
 let arrows = new Map(); // Map: arrowId -> { from: elementId, to: elementId, element: HTMLElement }
 let arrowCounter = 0; // Compteur pour les IDs de flèches
+let selectedArrows = new Set(); // Flèches sélectionnées
 
 // Variables pour le redimensionnement des cartes
 let resizingState = null; // { element, edges, startX, startY, startLeft, startTop, startW, startH }

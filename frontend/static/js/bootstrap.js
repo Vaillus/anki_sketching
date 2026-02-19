@@ -101,6 +101,7 @@ document.addEventListener('click', (e) => {
     // Désélectionne tout si on clique sur le canvas (pas sur une carte)
     if (e.target === canvas || e.target === canvasContainer) {
         deselectAllCards();
+        deselectAllArrows();
     }
 });
 
@@ -126,6 +127,10 @@ document.addEventListener('keydown', function(e) {
     // Empêche Ctrl+Zoom et autres raccourcis de zoom
     if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0' || e.key === '=' || e.wheelDelta)) {
         e.preventDefault();
+    }
+    // Supprime les flèches sélectionnées
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+        deleteSelectedArrows();
     }
     // Empêche les flèches de déplacer la page
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
