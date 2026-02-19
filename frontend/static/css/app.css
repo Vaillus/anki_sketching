@@ -109,6 +109,15 @@ body {
     padding: 1em;
     box-sizing: border-box;
     color: #f1eeff;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: default;
+}
+
+.card-content p,
+.card-content a,
+.card-content strong {
+    cursor: text;
 }
 
 .card-box.selected {

@@ -127,6 +127,13 @@ function makeDraggable(element) {
         
         // Gestion du clic gauche
         if (e.button === 0) {
+            // Si on clique dans le corps de la carte, laisser le navigateur gérer la sélection de texte
+            const isInTextContent = e.target.closest('.card-content') && !e.target.closest('.card-info');
+            if (isInTextContent) {
+                e.stopPropagation(); // empêche le pan du canvas
+                return;
+            }
+
             // Si on clique sur la bordure, on redimensionne au lieu de déplacer
             const resizeEdges = getResizeEdges(element, e.clientX, e.clientY);
             if (resizeEdges) {
@@ -170,7 +177,13 @@ function makeDraggable(element) {
     element.addEventListener('mousemove', (e) => {
         if (resizingState && resizingState.element === element) return;
         const edges = getResizeEdges(element, e.clientX, e.clientY);
-        element.style.cursor = edges ? getResizeCursor(edges) : 'move';
+        if (edges) {
+            element.style.cursor = getResizeCursor(edges);
+        } else if (e.target.closest('.card-content') && !e.target.closest('.card-info')) {
+            element.style.cursor = '';
+        } else {
+            element.style.cursor = 'move';
+        }
     });
 
     element.addEventListener('mouseleave', () => {
@@ -181,6 +194,8 @@ function makeDraggable(element) {
     element.addEventListener('click', (e) => {
         // Gère la sélection seulement si on n'a pas bougé la carte
         if (!hasMoved) {
+            const isInTextContent = e.target.closest('.card-content') && !e.target.closest('.card-info');
+            if (isInTextContent) return; // ne pas sélectionner la carte via un clic texte
             handleCardClick(element, e);
         }
         e.stopPropagation();
