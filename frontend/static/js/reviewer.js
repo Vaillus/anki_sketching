@@ -176,6 +176,7 @@
 
         // Rafraîchir la barre des cartes dues
         if (typeof loadDueCards === 'function') loadDueCards();
+        if (typeof applyBlockingHighlights === 'function') applyBlockingHighlights();
     }
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
