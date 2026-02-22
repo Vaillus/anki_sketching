@@ -1,3 +1,8 @@
+function refreshState() {
+    applyBlockingHighlights();
+    loadDueCards();
+}
+
 // Gestion du formulaire d'import
 document.getElementById('import-form').addEventListener('submit', function(event) {
     event.preventDefault();
@@ -16,8 +21,7 @@ document.getElementById('reschedule-distant').addEventListener('click', async fu
         const data = await res.json();
         if (data.success) {
             alert(`${data.rescheduled} carte(s) ramenée(s) à aujourd'hui.`);
-            applyBlockingHighlights();
-            loadDueCards();
+            refreshState();
         } else {
             alert('Erreur : ' + (data.error || 'inconnue'));
         }
@@ -116,8 +120,7 @@ document.getElementById('context-unlearn').addEventListener('click', async () =>
                     if (dueEl) dueEl.textContent = updated.due_display || '';
                 }
             }
-            applyBlockingHighlights();
-            loadDueCards();
+            refreshState();
         } catch (e) {
             console.error('Erreur désapprendre:', e);
         }

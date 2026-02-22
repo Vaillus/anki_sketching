@@ -15,6 +15,7 @@ from src.anki_interface.get_card_information import get_card_information
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
 from src.graph.sync_card_state import sync_single_card
 from src.graph.blocking import compute_blocking_states
+from src.graph.parse_graph import parse_json_to_db
 
 
 # Crée le router
@@ -34,6 +35,38 @@ def get_crt():
     return _cached_crt
 
 
+def _rebuild_edges_and_blocking() -> bool:
+    """Met à jour les edges depuis le JSON et recalcule le blocking.
+
+    N'appelle pas Anki — utile après une sauvegarde de canvas.
+    Retourne False silencieusement si le DB ou le fichier JSON n'existe pas.
+    """
+    try:
+        db_path = get_data_dir() / "graph.db"
+        if not db_path.exists():
+            return False
+        positions_file = get_positions_file()
+        if not positions_file.exists():
+            return False
+        conn = sqlite3.connect(str(db_path))
+        try:
+            parse_json_to_db(positions_file, conn)
+            compute_blocking_states(conn)
+        finally:
+            conn.close()
+        return True
+    except Exception:
+        return False
+
+
+def _sync_and_recompute(conn, card_ids):
+    """Synchronise l'état Anki d'une liste de cartes et recalcule le blocking."""
+    crt = get_crt()
+    for card_id in card_ids:
+        sync_single_card(conn, crt, card_id)
+    compute_blocking_states(conn)
+
+
 @router.get("/anki_status")
 async def anki_status():
     """Vérifie si Anki est connecté via AnkiConnect."""
@@ -44,12 +77,13 @@ async def anki_status():
 
 @router.post("/save_positions")
 async def save_positions(request: Request):
-    """Sauvegarde les positions des cartes."""
+    """Sauvegarde les positions des cartes et recalcule le blocking."""
     try:
         positions_data = await request.json()
         positions_file = get_positions_file()
         with open(positions_file, 'w') as f:
             json.dump(positions_data, f, indent=2)
+        _rebuild_edges_and_blocking()
         return JSONResponse({"success": True, "message": "Positions sauvegardées"})
     except Exception as e:
         return JSONResponse(
@@ -298,8 +332,7 @@ async def review_card(request: Request):
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             try:
-                rows = sync_single_card(conn, get_crt(), card_id)
-                compute_blocking_states(conn)
+                _sync_and_recompute(conn, [card_id])
             finally:
                 conn.close()
 
@@ -320,8 +353,7 @@ async def reschedule_card(request: Request):
     if db_path.exists():
         conn = sqlite3.connect(str(db_path))
         try:
-            sync_single_card(conn, get_crt(), card_id)
-            compute_blocking_states(conn)
+            _sync_and_recompute(conn, [card_id])
         finally:
             conn.close()
 
@@ -368,9 +400,7 @@ async def reschedule_distant_cards():
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             try:
-                for card_id in to_reschedule:
-                    sync_single_card(conn, get_crt(), card_id)
-                compute_blocking_states(conn)
+                _sync_and_recompute(conn, to_reschedule)
             finally:
                 conn.close()
 

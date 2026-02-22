@@ -97,6 +97,8 @@ function saveCardPositions() {
     .then(data => {
         if (data.success) {
             alert('✅ Positions, groupes et flèches sauvegardés !');
+            applyBlockingHighlights();
+            loadDueCards();
         } else {
             alert('❌ Erreur lors de la sauvegarde: ' + data.error);
         }
