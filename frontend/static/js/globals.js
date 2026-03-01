@@ -36,6 +36,9 @@ let isRepelling = false; // Flag pour éviter les conflits de répulsion
 // Sensibilité du pinch-to-zoom (plus petit = moins sensible)
 const PINCH_ZOOM_SENSITIVITY = 0.004;
 
+// Overrides par carte (chargés depuis /card_info_all au démarrage)
+const cardMinIntervals = new Map();
+
 // Références aux éléments DOM
 const canvas = document.getElementById('canvas');
 const canvasContainer = document.getElementById('canvas-container');

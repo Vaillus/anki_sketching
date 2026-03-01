@@ -301,6 +301,17 @@ function loadAllSavedCardsOnStartup() {
 
                     // Surbrillance des cartes bloquantes
                     applyBlockingHighlights();
+
+                    // Charge les overrides par carte (min_interval, etc.)
+                    fetch('/card_info_all')
+                        .then(r => r.json())
+                        .then(d => {
+                            if (!d.card_info) return;
+                            Object.entries(d.card_info).forEach(([cardId, info]) => {
+                                if (info.min_interval) cardMinIntervals.set(cardId, info.min_interval);
+                            });
+                        })
+                        .catch(err => console.error('card_info_all: failed to load', err));
                 }
             });
         }

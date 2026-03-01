@@ -128,6 +128,25 @@ document.getElementById('context-unlearn').addEventListener('click', async () =>
     hideContextMenu();
 });
 
+// Menu contextuel - Intervalle minimum
+document.getElementById('context-min-interval').addEventListener('click', () => {
+    const cardId = contextMenu.targetCard?.getAttribute('data-card-id');
+    if (!cardId) return hideContextMenu();
+    const current = cardMinIntervals.get(cardId) || '';
+    const value = prompt('Intervalle minimum (jours, vide = aucun) :', current);
+    if (value === null) return hideContextMenu();
+    const parsed = parseInt(value);
+    const newVal = parsed > 0 ? parsed : null;
+    if (newVal) cardMinIntervals.set(cardId, newVal);
+    else cardMinIntervals.delete(cardId);
+    fetch('/set_card_info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_id: cardId, min_interval: newVal })
+    });
+    hideContextMenu();
+});
+
 // Barre d'outils - Grouper
 document.getElementById('group-selected').addEventListener('click', () => {
     if (selectedCards.size >= 2) {

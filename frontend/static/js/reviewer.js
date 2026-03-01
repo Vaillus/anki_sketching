@@ -49,6 +49,7 @@
                     <span class="stat-item" id="stat-factor"></span>
                     <span class="stat-item" id="stat-reps"></span>
                     <span class="stat-item" id="stat-lapses"></span>
+                    <span class="stat-item" id="stat-min-interval"></span>
                 </div>
             </div>
         `;
@@ -130,6 +131,23 @@
             card.reps !== undefined ? `Révisions : ${card.reps}` : '';
         document.getElementById('stat-lapses').textContent =
             card.lapses > 0 ? `Oublis : ${card.lapses}` : '';
+
+        // Champ min_interval (editable inline)
+        const minVal = cardMinIntervals.get(String(card.card_id)) || '';
+        document.getElementById('stat-min-interval').innerHTML =
+            `Min : <input type="number" id="min-interval-input" value="${minVal}" placeholder="—" min="1" style="width:40px">j`;
+        document.getElementById('min-interval-input').addEventListener('change', e => {
+            const v = parseInt(e.target.value);
+            const key = String(card.card_id);
+            const newVal = v > 0 ? v : null;
+            if (newVal) cardMinIntervals.set(key, newVal);
+            else cardMinIntervals.delete(key);
+            fetch('/set_card_info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_id: key, min_interval: newVal })
+            });
+        });
 
         // Reset état
         document.getElementById('reviewer-back').classList.add('hidden');
