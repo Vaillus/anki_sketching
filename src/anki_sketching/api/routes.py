@@ -7,15 +7,16 @@ from fastapi.responses import JSONResponse
 import json
 import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
 from src.anki_interface.get_cards_ids import get_cards_ids
-from src.anki_interface.get_card_information import get_card_information
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
 from src.graph.sync_card_state import sync_single_card
 from src.graph.blocking import compute_blocking_states
 from src.graph.parse_graph import parse_json_to_db
+from src.graph.card_info import get_card_info, set_card_info, get_all_card_info
+from src.graph.srs import review_card as srs_review, get_next_intervals
 
 
 # Crée le router
@@ -249,10 +250,12 @@ async def get_due_cards():
     if not db_path.exists():
         return JSONResponse({"success": True, "cards": [], "total": 0})
 
+    type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
+
     conn = sqlite3.connect(str(db_path))
     try:
         cursor = conn.execute("""
-            SELECT card_id, card_type, due_date
+            SELECT card_id, card_type, due_date, interval, ease_factor
             FROM card_state
             WHERE is_blocked = 0
               AND queue >= 0
@@ -277,7 +280,7 @@ async def get_due_cards():
         return JSONResponse({"success": True, "cards": [], "total": 0})
 
     cards_data = []
-    for card_id, card_type, due_date in rows:
+    for card_id, card_type, due_date, interval, ease_factor in rows:
         card = Card(int(card_id), load_images=False)
         if not card.exists:
             continue
@@ -296,17 +299,21 @@ async def get_due_cards():
             if (images_dir / fn).exists()
         ]
 
+        next_reviews = get_next_intervals(
+            card_type, interval or 0, ease_factor or 2.5, due_date
+        )
+
         cards_data.append({
             "card_id": card_id,
             "texts": card.texts,
             "images": images,
             "type": card_type,
-            "type_label": card.type_label,
+            "type_label": type_labels.get(card_type, "New"),
             "due_date": due_date,
             "due_display": due_display,
-            "next_reviews": card.next_reviews,
-            "interval": card.interval,
-            "factor_percent": card.factor_percent,
+            "next_reviews": next_reviews,
+            "interval": interval or 0,
+            "factor_percent": (ease_factor or 2.5) * 100,
             "reps": card.reps,
             "lapses": card.lapses,
         })
@@ -315,28 +322,51 @@ async def get_due_cards():
 
 
 @router.post("/review_card")
-async def review_card(request: Request):
-    """Soumet une réponse de révision pour une carte via AnkiConnect."""
+async def review_card_endpoint(request: Request):
+    """Soumet une réponse de révision via le moteur SM-2 local."""
     data = await request.json()
     card_id = data.get("card_id")
-    ease = data.get("ease")  # 1=Again, 2=Hard, 3=Good, 4=Easy
+    rating = data.get("ease")  # 1=Again, 2=Hard, 3=Good, 4=Easy
 
-    if card_id is None or ease is None:
+    if card_id is None or rating is None:
         return JSONResponse({"success": False, "error": "card_id et ease sont requis"}, status_code=400)
 
-    result = anki_request('answerCards', answers=[{"cardId": int(card_id), "ease": int(ease)}])
-    success = bool(result and result[0])
+    db_path = get_data_dir() / "graph.db"
+    if not db_path.exists():
+        return JSONResponse({"success": False, "error": "graph.db introuvable"}, status_code=500)
 
-    if success:
-        db_path = get_data_dir() / "graph.db"
-        if db_path.exists():
-            conn = sqlite3.connect(str(db_path))
-            try:
-                _sync_and_recompute(conn, [card_id])
-            finally:
-                conn.close()
+    conn = sqlite3.connect(str(db_path))
+    try:
+        row = conn.execute(
+            "SELECT card_type, interval, ease_factor, due_date FROM card_state WHERE card_id = ?",
+            (str(card_id),),
+        ).fetchone()
+        if not row:
+            return JSONResponse({"success": False, "error": "Carte introuvable dans card_state"}, status_code=404)
 
-    return JSONResponse({"success": success})
+        card_type, interval, ease, due_date = row
+        result = srs_review(card_type, interval, ease or 2.5, int(rating), due_date)
+
+        # Applique l'intervalle minimum si défini
+        info = get_card_info(str(card_id))
+        min_ivl = info.get("min_interval")
+        if min_ivl and result["interval"] < min_ivl:
+            result["interval"] = min_ivl
+            result["due_date"] = (date.today() + timedelta(days=min_ivl)).isoformat()
+
+        conn.execute(
+            """UPDATE card_state
+               SET card_type=?, queue=0, due_date=?, interval=?, ease_factor=?, locally_managed=1
+               WHERE card_id=?""",
+            (result["card_type"], result["due_date"], result["interval"], result["ease"], str(card_id)),
+        )
+        conn.commit()
+
+        compute_blocking_states(conn)
+    finally:
+        conn.close()
+
+    return JSONResponse({"success": True})
 
 
 @router.post("/reschedule_card")
@@ -347,7 +377,7 @@ async def reschedule_card(request: Request):
     if card_id is None:
         return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
 
-    result = anki_request("setDueDate", cards=[int(card_id)], days="0")
+    anki_request("setDueDate", cards=[int(card_id)], days="0")
 
     db_path = get_data_dir() / "graph.db"
     if db_path.exists():
@@ -405,6 +435,31 @@ async def reschedule_distant_cards():
                 conn.close()
 
         return JSONResponse({"success": True, "rescheduled": len(to_reschedule)})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@router.get("/card_info_all")
+async def card_info_all():
+    """Retourne toutes les infos par carte (min_interval, etc.)."""
+    try:
+        info = get_all_card_info()
+        return JSONResponse({"card_info": info})
+    except Exception:
+        return JSONResponse({"card_info": {}})
+
+
+@router.post("/set_card_info")
+async def set_card_info_endpoint(request: Request):
+    """Upsert des infos pour une carte (min_interval, etc.)."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    if card_id is None:
+        return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
+    fields = {k: v for k, v in data.items() if k != "card_id"}
+    try:
+        set_card_info(str(card_id), **fields)
+        return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 

@@ -2,12 +2,16 @@
 FastAPI application principale pour Anki Sketching.
 Configure les templates Jinja2, les fichiers statiques et les routes.
 """
+import sqlite3
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from src.anki_sketching.api import routes as api_routes
 from src.anki_sketching.web import routes as web_routes
+from src.graph.schema import migrate_db
+from src.utilities.paths import get_data_dir
 
 
 def get_project_root() -> Path:
@@ -25,6 +29,13 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 # Configure les templates Jinja2
 templates_dir = get_project_root() / 'frontend' / 'templates'
 templates = Jinja2Templates(directory=str(templates_dir))
+
+# Migre le schéma graph.db si nécessaire
+db_path = get_data_dir() / "graph.db"
+if db_path.exists():
+    _conn = sqlite3.connect(str(db_path))
+    migrate_db(_conn)
+    _conn.close()
 
 # Inclut les routes
 app.include_router(web_routes.router)  # Routes web (templates)

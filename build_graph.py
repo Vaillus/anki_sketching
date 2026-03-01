@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Construit la base de données du graphe et synchronise l'état Anki."""
 
+import sqlite3
+
 from src.anki_interface import get_collection_crt
 from src.graph.blocking import compute_blocking_states, get_blocking_report
 from src.graph.parse_graph import parse_json_to_db
-from src.graph.schema import create_database
+from src.graph.schema import create_database, migrate_db
 from src.graph.sync_card_state import sync_anki_state
 from src.utilities.paths import get_data_dir
 
@@ -13,7 +15,16 @@ def main() -> None:
     db_path = get_data_dir() / "graph.db"
     json_path = get_data_dir() / "card_positions.json"
 
-    conn = create_database(db_path)
+    if db_path.exists():
+        # Préserve la DB existante (cartes locally_managed) ; migre le schéma si besoin
+        conn = sqlite3.connect(str(db_path))
+        migrate_db(conn)
+        # Vide les edges (recalculées depuis le JSON)
+        conn.execute("DELETE FROM edges")
+        conn.commit()
+    else:
+        conn = create_database(db_path)
+
     card_ids = parse_json_to_db(json_path, conn)
     crt = get_collection_crt()
     sync_anki_state(conn, crt, card_ids)
