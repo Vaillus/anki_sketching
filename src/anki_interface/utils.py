@@ -19,7 +19,7 @@ def anki_request(action, **params):
         return response_json.get("result")
 
     except requests.exceptions.RequestException as e:
-        print(f"Erreur de connexion à Anki. Anki est-il bien lancé avec AnkiConnect ?")
+        print("Erreur de connexion à Anki. Anki est-il bien lancé avec AnkiConnect ?")
         print(f"Détail de l'erreur : {e}")
         return None
     except Exception as e:
