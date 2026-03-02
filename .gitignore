@@ -17,7 +17,6 @@ node_modules/
 
 # User data (ignore JSON files but keep folder structure)
 data/*.json
-data/graph.db
 data/card_info.db
 
 **/*.egg-info/
