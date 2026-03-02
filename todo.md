@@ -8,3 +8,4 @@
 - [ ] Permettre l'ajout de cartes manuelles dans le graphe (pas importées depuis Anki) — implique de réfléchir à la gestion des intervalles/scheduling pour ces cartes (due date, état SRS, intégration dans la logique de blocage)
 - [ ] Afficher l'intervalle restant avant révision pour les cartes à revoir — montrer combien de temps avant que la carte soit due (ex: "dans 3 jours", "dans 2 semaines")
 - [ ] Recalculer les états blocking/bloqués à l'initialisation
+- [ ] Tester le sm2
