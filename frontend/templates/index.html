@@ -47,13 +47,42 @@
         Position: <span id="position">0, 0</span> | Zoom: <span id="zoom-info">100%</span>
     </div>
 
-    <!-- Menu contextuel -->
+    <!-- Menu contextuel carte -->
     <div id="context-menu">
         <div class="menu-item" id="context-deselect">Désélectionner</div>
         <div class="menu-item" id="context-delete">Supprimer la carte</div>
         <div class="menu-item" id="context-bring-front">Mettre au premier plan</div>
         <div class="menu-item" id="context-unlearn">Désapprendre</div>
         <div class="menu-item" id="context-min-interval">Intervalle minimum…</div>
+        <div class="menu-item" id="context-edit-local" style="display:none;">Modifier</div>
+    </div>
+
+    <!-- Menu contextuel canvas -->
+    <div id="canvas-context-menu">
+        <div class="menu-item" id="canvas-ctx-new-card">Nouvelle carte</div>
+    </div>
+
+    <!-- Modal création / édition carte locale -->
+    <div id="local-card-modal">
+        <div id="local-card-panel">
+            <h3 id="local-card-modal-title">Nouvelle carte</h3>
+            <label>Recto</label>
+            <textarea id="local-card-front" rows="3" placeholder="Texte du recto…"></textarea>
+            <label>Verso</label>
+            <textarea id="local-card-back" rows="3" placeholder="Texte du verso…"></textarea>
+            <label>Image (optionnelle)</label>
+            <div id="local-card-paste-zone">
+                <span>Coller (Ctrl+V), glisser ou cliquer</span>
+            </div>
+            <input type="file" id="local-card-image" accept="image/*" style="display:none;">
+            <div id="local-card-image-preview"></div>
+            <button type="button" id="local-card-remove-image" style="display:none;">Retirer l'image</button>
+            <div class="local-card-actions">
+                <button id="local-card-submit">Créer</button>
+                <button id="local-card-cancel">Annuler</button>
+                <button id="local-card-delete" style="display:none;">Supprimer</button>
+            </div>
+        </div>
     </div>
 
     <!-- Barre des cartes à réviser -->
@@ -83,6 +112,7 @@
     <script src="/static/js/physics.js"></script>
     <script src="/static/js/storage.js?v=20260218"></script>
     <script src="/static/js/cards.js"></script>
+    <script src="/static/js/local_cards.js"></script>
     <script src="/static/js/bootstrap.js"></script>
     <script src="/static/js/due_cards.js"></script>
     <script src="/static/js/anki_status.js"></script>

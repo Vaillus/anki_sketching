@@ -2,11 +2,12 @@
 Routes API pour Anki Sketching.
 Gère toutes les routes API qui retournent du JSON.
 """
-from fastapi import APIRouter, Request, Form, HTTPException
+from fastapi import APIRouter, Request, Form, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 import json
 import os
 import sqlite3
+import uuid
 from datetime import date, datetime, timedelta
 
 from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
@@ -17,6 +18,12 @@ from src.graph.blocking import compute_blocking_states
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.card_info import get_card_info, set_card_info, get_all_card_info
 from src.graph.srs import review_card as srs_review, get_next_intervals
+from src.graph.local_cards import (
+    create_local_card,
+    get_local_card,
+    update_local_card,
+    delete_local_card,
+)
 
 
 # Crée le router
@@ -150,8 +157,35 @@ async def get_cards_by_ids(request: Request):
         
         cards_data = []
         for card_id in card_ids:
+            card_id_str = str(card_id)
+
+            if card_id_str.startswith("local_"):
+                local = get_local_card(card_id_str)
+                if local is None:
+                    continue
+                texts = {}
+                if local["front_text"]:
+                    texts["Front"] = local["front_text"]
+                if local["back_text"]:
+                    texts["Back"] = local["back_text"]
+                local_images = []
+                if local["image_filename"]:
+                    local_images = [f'/static/images/{local["image_filename"]}']
+                cards_data.append({
+                    'card_id': card_id_str,
+                    'texts': texts,
+                    'images': local_images,
+                    'type': 0,
+                    'type_label': 'New',
+                    'due': None,
+                    'due_display': 'New',
+                    'interval': 0,
+                    'factor_percent': 250,
+                })
+                continue
+
             card = Card(int(card_id), load_images=True, image_output_dir=str(images_dir))
-            
+
             if card.exists:
                 # due : Review = jour relatif à crt, Learning/Relearning = timestamp Unix
                 due_display = None
@@ -167,7 +201,7 @@ async def get_cards_by_ids(request: Request):
                         due_display = "À réviser"
                 else:  # New card
                     due_display = "New"
-                
+
                 cards_data.append({
                     'card_id': card_id,
                     'texts': card.texts,
@@ -179,7 +213,7 @@ async def get_cards_by_ids(request: Request):
                     'interval': card.interval,
                     'factor_percent': card.factor_percent,
                 })
-        
+
         return JSONResponse({"success": True, "cards": cards_data})
     except Exception as e:
         return JSONResponse(
@@ -280,11 +314,8 @@ async def get_due_cards():
         return JSONResponse({"success": True, "cards": [], "total": 0})
 
     cards_data = []
+    images_dir = get_images_dir()
     for card_id, card_type, due_date, interval, ease_factor in rows:
-        card = Card(int(card_id), load_images=False)
-        if not card.exists:
-            continue
-
         if card_type == 0:
             due_display = "New"
         elif due_date is None:
@@ -292,16 +323,48 @@ async def get_due_cards():
         else:
             due_display = due_date[:10]  # YYYY-MM-DD
 
-        images_dir = get_images_dir()
+        next_reviews = get_next_intervals(
+            card_type, interval or 0, ease_factor or 2.5, due_date
+        )
+
+        if str(card_id).startswith("local_"):
+            local = get_local_card(str(card_id))
+            if local is None:
+                continue
+            texts = {}
+            if local["front_text"]:
+                texts["Front"] = local["front_text"]
+            if local["back_text"]:
+                texts["Back"] = local["back_text"]
+            local_images = []
+            if local["image_filename"]:
+                local_images = [f'/static/images/{local["image_filename"]}']
+
+            cards_data.append({
+                "card_id": card_id,
+                "texts": texts,
+                "images": local_images,
+                "type": card_type,
+                "type_label": type_labels.get(card_type, "New"),
+                "due_date": due_date,
+                "due_display": due_display,
+                "next_reviews": next_reviews,
+                "interval": interval or 0,
+                "factor_percent": (ease_factor or 2.5) * 100,
+                "reps": 0,
+                "lapses": 0,
+            })
+            continue
+
+        card = Card(int(card_id), load_images=False)
+        if not card.exists:
+            continue
+
         images = [
             f'/static/images/{fn}'
             for fn in card.image_filenames
             if (images_dir / fn).exists()
         ]
-
-        next_reviews = get_next_intervals(
-            card_type, interval or 0, ease_factor or 2.5, due_date
-        )
 
         cards_data.append({
             "card_id": card_id,
@@ -377,6 +440,9 @@ async def reschedule_card(request: Request):
     if card_id is None:
         return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
 
+    if str(card_id).startswith("local_"):
+        return JSONResponse({"success": False, "error": "Opération non supportée pour les cartes locales"}, status_code=400)
+
     anki_request("setDueDate", cards=[int(card_id)], days="0")
 
     db_path = get_data_dir() / "graph.db"
@@ -399,7 +465,7 @@ async def reschedule_distant_cards():
             return JSONResponse({"success": True, "rescheduled": 0})
         with open(positions_file) as f:
             state = json.load(f)
-        card_ids = [int(cid) for cid in state.get("cards", {}).keys()]
+        card_ids = [int(cid) for cid in state.get("cards", {}).keys() if not cid.startswith("local_")]
         if not card_ids:
             return JSONResponse({"success": True, "rescheduled": 0})
 
@@ -484,3 +550,108 @@ async def get_blocking_cards():
         conn.close()
 
     return JSONResponse({"success": True, "card_ids": card_ids})
+
+
+# ── Local cards ───────────────────────────────────────────────────────────
+
+
+def _format_local_card(card_id: str, local: dict) -> dict:
+    """Formate une carte locale comme /get_cards_by_ids le ferait."""
+    texts = {}
+    if local["front_text"]:
+        texts["Front"] = local["front_text"]
+    if local["back_text"]:
+        texts["Back"] = local["back_text"]
+    images = []
+    if local["image_filename"]:
+        images = [f'/static/images/{local["image_filename"]}']
+    return {
+        "card_id": card_id,
+        "texts": texts,
+        "images": images,
+        "type": 0,
+        "type_label": "New",
+        "due": None,
+        "due_display": "New",
+        "interval": 0,
+        "factor_percent": 250,
+    }
+
+
+@router.post("/create_local_card")
+async def create_local_card_endpoint(request: Request):
+    """Crée une carte locale (pas dans Anki)."""
+    data = await request.json()
+    front_text = data.get("front_text", "")
+    back_text = data.get("back_text", "")
+    image_filename = data.get("image_filename")
+
+    card_id = create_local_card(front_text, back_text, image_filename)
+    local = get_local_card(card_id)
+    if not local:
+        return JSONResponse({"success": False, "error": "Erreur création carte"}, status_code=500)
+    card_data = _format_local_card(card_id, local)
+    return JSONResponse({"success": True, "card": card_data})
+
+
+@router.post("/update_local_card")
+async def update_local_card_endpoint(request: Request):
+    """Met à jour le contenu d'une carte locale."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    if not card_id or not str(card_id).startswith("local_"):
+        return JSONResponse({"success": False, "error": "card_id local requis"}, status_code=400)
+
+    kwargs = {}
+    if "front_text" in data:
+        kwargs["front_text"] = data["front_text"]
+    if "back_text" in data:
+        kwargs["back_text"] = data["back_text"]
+    if "image_filename" in data:
+        kwargs["image_filename"] = data["image_filename"]
+
+    ok = update_local_card(str(card_id), **kwargs)
+    if not ok:
+        return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
+
+    local = get_local_card(str(card_id))
+    if not local:
+        return JSONResponse({"success": False, "error": "Carte introuvable après mise à jour"}, status_code=404)
+    card_data = _format_local_card(str(card_id), local)
+    return JSONResponse({"success": True, "card": card_data})
+
+
+@router.post("/upload_image")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload une image pour une carte locale."""
+    images_dir = get_images_dir()
+    ensure_dir_exists(images_dir)
+
+    ext = os.path.splitext(file.filename or "img.png")[1] or ".png"
+    filename = f"local_{uuid.uuid4().hex[:8]}{ext}"
+    filepath = images_dir / filename
+
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    return JSONResponse({
+        "success": True,
+        "filename": filename,
+        "path": f"/static/images/{filename}",
+    })
+
+
+@router.post("/delete_local_card")
+async def delete_local_card_endpoint(request: Request):
+    """Supprime une carte locale."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    if not card_id or not str(card_id).startswith("local_"):
+        return JSONResponse({"success": False, "error": "card_id local requis"}, status_code=400)
+
+    ok = delete_local_card(str(card_id))
+    if not ok:
+        return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
+
+    return JSONResponse({"success": True})

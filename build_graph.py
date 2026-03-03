@@ -5,6 +5,7 @@ import sqlite3
 
 from src.anki_interface import get_collection_crt
 from src.graph.blocking import compute_blocking_states, get_blocking_report
+from src.graph.local_cards import restore_local_cards_to_graph
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import create_database, migrate_db
 from src.graph.sync_card_state import sync_anki_state
@@ -28,6 +29,9 @@ def main() -> None:
     card_ids = parse_json_to_db(json_path, conn)
     crt = get_collection_crt()
     sync_anki_state(conn, crt, card_ids)
+    restored = restore_local_cards_to_graph()
+    if restored:
+        print(f"  Restored {restored} local card(s) to graph.db")
     compute_blocking_states(conn)
     report = get_blocking_report(conn)
     conn.close()

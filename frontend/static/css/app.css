@@ -757,6 +757,178 @@ body {
     display: none;
 }
 
+/* ===== Canvas context menu ===== */
+
+#canvas-context-menu {
+    position: fixed;
+    z-index: 10001;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    padding: 0;
+    min-width: 150px;
+    display: none;
+}
+
+#canvas-context-menu .menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #3a2b86;
+    font-size: 14px;
+    color: #f1eeff;
+}
+
+#canvas-context-menu .menu-item:last-child {
+    border-bottom: none;
+}
+
+#canvas-context-menu .menu-item:hover {
+    background-color: #34257a;
+}
+
+/* ===== Local card modal ===== */
+
+#local-card-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+#local-card-modal.visible {
+    display: flex;
+}
+
+#local-card-panel {
+    background: #1e1545;
+    border: 1px solid #3a2b86;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+    width: min(480px, 92vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#local-card-panel h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #f1eeff;
+}
+
+#local-card-panel label {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #5a4aaa;
+}
+
+#local-card-panel textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    color: #f1eeff;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+#local-card-panel textarea:focus {
+    outline: none;
+    border-color: #5a4aaa;
+}
+
+#local-card-paste-zone {
+    border: 2px dashed #3a2b86;
+    border-radius: 6px;
+    padding: 14px;
+    text-align: center;
+    color: #7a6eaa;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+#local-card-paste-zone:hover,
+#local-card-paste-zone.dragover {
+    border-color: #5a4aaa;
+    background: rgba(90, 74, 170, 0.1);
+}
+
+#local-card-paste-zone.has-image {
+    border-color: #27ae60;
+    color: #a5d6a7;
+}
+
+#local-card-image-preview {
+    min-height: 0;
+}
+
+#local-card-remove-image {
+    background: none;
+    border: 1px solid #3a2b86;
+    color: #ef9a9a;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+#local-card-remove-image:hover {
+    background: rgba(192, 57, 43, 0.2);
+}
+
+.local-card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.local-card-actions button {
+    padding: 8px 20px;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #f1eeff;
+    background: #2b1f6b;
+    transition: background 0.15s ease;
+}
+
+.local-card-actions button:hover {
+    background: #34257a;
+}
+
+#local-card-submit {
+    background: #27ae60 !important;
+    border-color: #27ae60 !important;
+}
+
+#local-card-submit:hover {
+    background: #2ecc71 !important;
+}
+
+#local-card-delete {
+    background: #c0392b !important;
+    border-color: #c0392b !important;
+    margin-left: auto;
+}
+
+#local-card-delete:hover {
+    background: #e74c3c !important;
+}
+
 .hidden {
     display: none !important;
 }

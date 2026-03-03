@@ -37,9 +37,11 @@ function restoreSavedArrows(arrowsData) {
     scheduleArrowLayoutRefresh();
 }
 
-function saveCardPositions() {
+function saveCardPositions(options) {
+    const silent = options && options.silent;
+
     if (cards.length === 0) {
-        alert('Aucune carte à sauvegarder.');
+        if (!silent) alert('Aucune carte à sauvegarder.');
         return;
     }
 
@@ -96,15 +98,17 @@ function saveCardPositions() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Positions, groupes et flèches sauvegardés !');
+            if (!silent) alert('✅ Positions, groupes et flèches sauvegardés !');
             applyBlockingHighlights();
             loadDueCards();
         } else {
-            alert('❌ Erreur lors de la sauvegarde: ' + data.error);
+            if (!silent) alert('❌ Erreur lors de la sauvegarde: ' + data.error);
+            else console.error('Erreur lors de la sauvegarde:', data.error);
         }
     })
     .catch(error => {
-        alert('❌ Erreur de communication: ' + error);
+        if (!silent) alert('❌ Erreur de communication: ' + error);
+        else console.error('Erreur de communication:', error);
     });
 }
 

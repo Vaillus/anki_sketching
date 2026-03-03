@@ -20,6 +20,15 @@ def get_db_conn() -> sqlite3.Connection:
             min_interval INTEGER
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS local_card_content (
+            card_id TEXT PRIMARY KEY,
+            front_text TEXT NOT NULL DEFAULT '',
+            back_text TEXT NOT NULL DEFAULT '',
+            image_filename TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+        )
+    """)
     conn.commit()
     return conn
 
