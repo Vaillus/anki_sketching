@@ -1,4 +1,12 @@
 #!/bin/bash
 # Run the Anki Sketching FastAPI application
 
-uv run uvicorn src.anki_sketching.main:app --reload --port 5000
+PORT=5000
+echo ""
+echo "=========================================="
+echo "  Anki Sketching"
+echo "  http://localhost:${PORT}"
+echo "=========================================="
+echo ""
+
+uv run uvicorn src.anki_sketching.main:app --reload --port "$PORT"
