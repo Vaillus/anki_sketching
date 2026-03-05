@@ -1,6 +1,7 @@
 """
 Synchronise l'état des cartes (type, queue, due_date) depuis Anki vers card_state.
 """
+import json
 import sqlite3
 from typing import Optional, Set, Union
 
@@ -42,8 +43,9 @@ def sync_anki_state(
             """INSERT OR REPLACE INTO card_state
                (card_id, card_type, queue, due_date, raw_due,
                 interval, ease_factor, locally_managed,
+                texts_json, image_filenames_json, reps, lapses,
                 is_blocking, is_blocked)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 0, 0)""",
             (
                 cid,
                 card.type,
@@ -52,6 +54,10 @@ def sync_anki_state(
                 card.due,
                 card.interval,
                 card.factor / 1000.0 if card.factor else 2.5,
+                json.dumps(card.texts),
+                json.dumps(card.image_filenames),
+                card.reps,
+                card.lapses,
             ),
         )
     db_conn.commit()
@@ -93,7 +99,8 @@ def sync_single_card(
     cursor = db_conn.execute(
         """UPDATE card_state
            SET card_type = ?, queue = ?, due_date = ?, raw_due = ?,
-               interval = ?, ease_factor = ?
+               interval = ?, ease_factor = ?,
+               texts_json = ?, image_filenames_json = ?, reps = ?, lapses = ?
            WHERE card_id = ?""",
         (
             card.type,
@@ -102,6 +109,10 @@ def sync_single_card(
             card.due,
             card.interval,
             card.factor / 1000.0 if card.factor else 2.5,
+            json.dumps(card.texts),
+            json.dumps(card.image_filenames),
+            card.reps,
+            card.lapses,
             str(card_id),
         ),
     )

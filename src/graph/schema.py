@@ -16,6 +16,10 @@ CREATE TABLE card_state (
     interval INTEGER NOT NULL DEFAULT 0,
     ease_factor REAL NOT NULL DEFAULT 2.5,
     locally_managed BOOLEAN NOT NULL DEFAULT 0,
+    texts_json TEXT,
+    image_filenames_json TEXT,
+    reps INTEGER NOT NULL DEFAULT 0,
+    lapses INTEGER NOT NULL DEFAULT 0,
     is_blocking BOOLEAN NOT NULL,
     is_blocked BOOLEAN NOT NULL
 );
@@ -26,6 +30,12 @@ CREATE TABLE edges (
     child_card_id TEXT NOT NULL,
     PRIMARY KEY (parent_card_id, child_card_id)
 );
+
+-- Configuration clé-valeur (ex: crt)
+CREATE TABLE IF NOT EXISTS config (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 
@@ -33,16 +43,36 @@ _MIGRATIONS = [
     ("interval", "INTEGER NOT NULL DEFAULT 0"),
     ("ease_factor", "REAL NOT NULL DEFAULT 2.5"),
     ("locally_managed", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("texts_json", "TEXT"),
+    ("image_filenames_json", "TEXT"),
+    ("reps", "INTEGER NOT NULL DEFAULT 0"),
+    ("lapses", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
 def migrate_db(conn: sqlite3.Connection) -> None:
-    """Ajoute les colonnes manquantes à card_state (idempotent)."""
+    """Ajoute les colonnes manquantes à card_state et crée les tables manquantes (idempotent)."""
     cursor = conn.execute("PRAGMA table_info(card_state)")
     existing = {row[1] for row in cursor.fetchall()}
     for col_name, col_def in _MIGRATIONS:
         if col_name not in existing:
             conn.execute(f"ALTER TABLE card_state ADD COLUMN {col_name} {col_def}")
+    conn.execute("CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.commit()
+
+
+def get_config(conn: sqlite3.Connection, key: str) -> str | None:
+    """Lit une valeur de la table config."""
+    row = conn.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else None
+
+
+def set_config(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Écrit une valeur dans la table config (upsert)."""
+    conn.execute(
+        "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+        (key, value, value),
+    )
     conn.commit()
 
 
