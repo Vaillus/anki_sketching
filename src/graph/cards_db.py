@@ -2,6 +2,7 @@
 Base de données unifiée pour les cartes (cards.db).
 Fusionne card_state, card_info et local_card_content en une seule table.
 """
+import json
 import sqlite3
 from pathlib import Path
 
@@ -24,9 +25,6 @@ CREATE TABLE IF NOT EXISTS cards (
     is_blocking BOOLEAN NOT NULL DEFAULT 0,
     is_blocked BOOLEAN NOT NULL DEFAULT 0,
     min_interval INTEGER,
-    front_text TEXT,
-    back_text TEXT,
-    image_filename TEXT,
     created_at TEXT
 );
 """
@@ -46,20 +44,47 @@ def get_cards_db_conn() -> sqlite3.Connection:
 
 
 def migrate_cards_db(conn: sqlite3.Connection) -> None:
-    """Ajoute les colonnes manquantes à cards (idempotent)."""
+    """Ajoute les colonnes manquantes à cards et migre les données (idempotent)."""
     cursor = conn.execute("PRAGMA table_info(cards)")
     existing = {row[1] for row in cursor.fetchall()}
 
-    migrations = [
+    add_migrations = [
         ("min_interval", "INTEGER"),
         ("front_text", "TEXT"),
         ("back_text", "TEXT"),
         ("image_filename", "TEXT"),
         ("created_at", "TEXT"),
     ]
-    for col_name, col_def in migrations:
+    for col_name, col_def in add_migrations:
         if col_name not in existing:
             conn.execute(f"ALTER TABLE cards ADD COLUMN {col_name} {col_def}")
+    conn.commit()
+
+    # Migrate local cards: populate texts_json/image_filenames_json from scalar columns
+    rows = conn.execute(
+        "SELECT card_id, front_text, back_text, image_filename FROM cards "
+        "WHERE texts_json IS NULL AND (front_text IS NOT NULL OR back_text IS NOT NULL)"
+    ).fetchall()
+    for card_id, front_text, back_text, image_filename in rows:
+        texts = {}
+        if front_text:
+            texts["Front"] = front_text
+        if back_text:
+            texts["Back"] = back_text
+        images = [image_filename] if image_filename else []
+        conn.execute(
+            "UPDATE cards SET texts_json = ?, image_filenames_json = ? WHERE card_id = ?",
+            (json.dumps(texts), json.dumps(images), card_id),
+        )
+    if rows:
+        conn.commit()
+        print(f"  Migrated {len(rows)} local cards to JSON columns")
+
+    # Drop deprecated scalar columns (SQLite 3.35+)
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(cards)").fetchall()}
+    for col in ("front_text", "back_text", "image_filename"):
+        if col in existing:
+            conn.execute(f"ALTER TABLE cards DROP COLUMN {col}")
     conn.commit()
 
 
@@ -135,6 +160,13 @@ def migrate_from_legacy() -> None:
                     "SELECT card_id, front_text, back_text, image_filename, created_at FROM local_card_content"
                 ).fetchall()
                 for card_id, front_text, back_text, image_filename, created_at in rows:
+                    # Build JSON columns from scalar values
+                    texts = {}
+                    if front_text:
+                        texts["Front"] = front_text
+                    if back_text:
+                        texts["Back"] = back_text
+                    images = [image_filename] if image_filename else []
                     # Ensure the card exists in cards table (may not have been in card_state)
                     cards_conn.execute("""
                         INSERT OR IGNORE INTO cards
@@ -142,9 +174,11 @@ def migrate_from_legacy() -> None:
                         VALUES (?, 0, 0, 1, 0, 0)
                     """, (card_id,))
                     cards_conn.execute("""
-                        UPDATE cards SET front_text=?, back_text=?, image_filename=?, created_at=?
+                        UPDATE cards SET front_text=?, back_text=?, image_filename=?,
+                                         texts_json=?, image_filenames_json=?, created_at=?
                         WHERE card_id=?
-                    """, (front_text, back_text, image_filename, created_at, card_id))
+                    """, (front_text, back_text, image_filename,
+                          json.dumps(texts), json.dumps(images), created_at, card_id))
                 cards_conn.commit()
                 print(f"  Merged {len(rows)} local_card_content entries")
         finally:

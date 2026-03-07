@@ -205,31 +205,18 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
     """Construit un dict carte depuis une row de la table cards.
 
     Row: (card_id, card_type, queue, due_date, raw_due, interval, ease_factor,
-          texts_json, image_filenames_json, reps, lapses,
-          front_text, back_text, image_filename)
+          texts_json, image_filenames_json, reps, lapses)
     """
     (card_id, card_type, _queue, due_date, raw_due, interval, ease_factor,
-     texts_json, image_filenames_json, reps, lapses,
-     front_text, back_text, image_filename) = row
+     texts_json, image_filenames_json, reps, lapses) = row
 
-    # Cartes locales : utiliser le contenu local
-    if str(card_id).startswith("local_"):
-        texts = {}
-        if front_text:
-            texts["Front"] = front_text
-        if back_text:
-            texts["Back"] = back_text
-        images = []
-        if image_filename:
-            images = [f'/static/images/{image_filename}']
-    else:
-        texts = json.loads(texts_json) if texts_json else {}
-        image_filenames = json.loads(image_filenames_json) if image_filenames_json else []
-        images = [
-            f'/static/images/{fn}'
-            for fn in image_filenames
-            if (images_dir / fn).exists()
-        ]
+    texts = json.loads(texts_json) if texts_json else {}
+    image_filenames = json.loads(image_filenames_json) if image_filenames_json else []
+    images = [
+        f'/static/images/{fn}'
+        for fn in image_filenames
+        if (images_dir / fn).exists()
+    ]
 
     type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
     return {
@@ -248,8 +235,7 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
 
 
 _CARDS_COLS = ("card_id, card_type, queue, due_date, raw_due, interval, ease_factor,"
-               " texts_json, image_filenames_json, reps, lapses,"
-               " front_text, back_text, image_filename")
+               " texts_json, image_filenames_json, reps, lapses")
 
 
 @router.post("/get_cards_by_ids")
@@ -279,17 +265,14 @@ async def get_cards_by_ids(request: Request):
                     local = get_local_card(card_id_str)
                     if local is None:
                         continue
-                    texts = {}
-                    if local["front_text"]:
-                        texts["Front"] = local["front_text"]
-                    if local["back_text"]:
-                        texts["Back"] = local["back_text"]
-                    local_images = []
-                    if local["image_filename"]:
-                        local_images = [f'/static/images/{local["image_filename"]}']
+                    local_images = [
+                        f'/static/images/{fn}'
+                        for fn in local["images"]
+                        if (images_dir / fn).exists()
+                    ]
                     cards_data.append({
                         'card_id': card_id_str,
-                        'texts': texts,
+                        'texts': local["texts"],
                         'images': local_images,
                         'type': 0,
                         'type_label': 'New',
@@ -351,7 +334,7 @@ async def import_deck(deck_name: str = Form(...)):
             cards_conn.execute(
                 f"""INSERT OR REPLACE INTO cards
                     ({_CARDS_COLS}, locally_managed, is_blocking, is_blocked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, 0, 0)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)""",
                 (
                     str(card_id), card.type, card.queue, due_date_str, card.due,
                     card.interval, card.factor / 1000.0 if card.factor else 2.5,
@@ -412,8 +395,8 @@ async def get_due_cards():
 
     cards_data = []
     for row in rows:
-        # row has 15 cols: 14 from _CARDS_COLS + ease2 (duplicate)
-        base_row = row[:14]
+        # row has 12 cols: 11 from _CARDS_COLS + ease2 (duplicate)
+        base_row = row[:11]
         card_type = base_row[1]
         due_date = base_row[3]
         interval = base_row[5]
@@ -676,17 +659,10 @@ async def delete_local_card_endpoint(request: Request):
 
 def _format_local_card(card_id: str, local: dict) -> dict:
     """Formate une carte locale comme /get_cards_by_ids le ferait."""
-    texts = {}
-    if local["front_text"]:
-        texts["Front"] = local["front_text"]
-    if local["back_text"]:
-        texts["Back"] = local["back_text"]
-    images = []
-    if local["image_filename"]:
-        images = [f'/static/images/{local["image_filename"]}']
+    images = [f'/static/images/{fn}' for fn in local["images"]]
     return {
         "card_id": card_id,
-        "texts": texts,
+        "texts": local["texts"],
         "images": images,
         "type": 0,
         "type_label": "New",
