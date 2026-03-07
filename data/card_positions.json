@@ -4,14 +4,14 @@
     "dessin::perspective::4-formes organique"
   ],
   "canvas": {
-    "x": 707.464849024748,
-    "y": 107.36895871550723,
-    "zoom": 0.3084225253056285
+    "x": 952.6183492767964,
+    "y": -218.81079658687247,
+    "zoom": 0.46280618654297423
   },
   "cards": {
     "1721160391157": {
-      "left": 1169,
-      "top": -662,
+      "left": 1853,
+      "top": -646,
       "zIndex": 55,
       "width": 328,
       "height": 210
@@ -24,8 +24,8 @@
       "height": 238
     },
     "1721160417440": {
-      "left": 758,
-      "top": -679,
+      "left": 1442,
+      "top": -663,
       "zIndex": 54,
       "width": 338,
       "height": 238
@@ -45,11 +45,11 @@
       "height": 408
     },
     "1721161560347": {
-      "left": 5,
-      "top": 86,
+      "left": -233,
+      "top": 145,
       "zIndex": 202,
       "width": 455,
-      "height": 388
+      "height": 394
     },
     "1721691460993": {
       "left": -1274,
@@ -108,8 +108,8 @@
       "height": 640
     },
     "1721160606543": {
-      "left": -273,
-      "top": 853,
+      "left": -289,
+      "top": 875,
       "zIndex": 182,
       "width": 526,
       "height": 422
@@ -197,6 +197,48 @@
       "zIndex": 225,
       "width": 300,
       "height": 508
+    },
+    "local_9012521f": {
+      "left": -563,
+      "top": -768,
+      "zIndex": 244,
+      "width": 602,
+      "height": 518
+    },
+    "local_c6b8c969": {
+      "left": 917,
+      "top": -744,
+      "zIndex": 238,
+      "width": 250,
+      "height": 300
+    },
+    "local_1ccd12ff": {
+      "left": 599,
+      "top": -751,
+      "zIndex": 236,
+      "width": 250,
+      "height": 272
+    },
+    "local_00f427da": {
+      "left": -999,
+      "top": -783,
+      "zIndex": 243,
+      "width": 396,
+      "height": 569
+    },
+    "local_f076e672": {
+      "left": 325,
+      "top": -757,
+      "zIndex": 237,
+      "width": 250,
+      "height": 300
+    },
+    "local_06f91df1": {
+      "left": -2335,
+      "top": -332,
+      "zIndex": 239,
+      "width": 250,
+      "height": 300
     }
   },
   "groups": {
@@ -234,6 +276,14 @@
         "1721692635046",
         "1721160872420",
         "1721692670500"
+      ]
+    },
+    "group_6": {
+      "name": "Groupe 6",
+      "cards": [
+        "local_1ccd12ff",
+        "local_f076e672",
+        "local_c6b8c969"
       ]
     }
   },
@@ -375,6 +425,18 @@
       "to": "1721161682605",
       "fromAnchor": "bottom",
       "toAnchor": "top"
+    },
+    {
+      "from": "group_6",
+      "to": "1721161655016",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721162460243",
+      "to": "1721691460993",
+      "fromAnchor": "left",
+      "toAnchor": "right"
     }
   ]
 }

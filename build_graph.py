@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Construit la base de données du graphe et synchronise l'état Anki."""
+"""Reconstruit les edges du graphe et recalcule le blocking."""
 
-import sqlite3
 
-from src.anki_interface import get_collection_crt
 from src.graph.blocking import compute_blocking_states, get_blocking_report
-from src.graph.local_cards import restore_local_cards_to_graph
+from src.graph.cards_db import get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
-from src.graph.schema import create_database, migrate_db
-from src.graph.sync_card_state import sync_anki_state
+from src.graph.schema import create_database
 from src.utilities.paths import get_data_dir
 
 
@@ -16,25 +13,18 @@ def main() -> None:
     db_path = get_data_dir() / "graph.db"
     json_path = get_data_dir() / "card_positions.json"
 
-    if db_path.exists():
-        # Préserve la DB existante (cartes locally_managed) ; migre le schéma si besoin
-        conn = sqlite3.connect(str(db_path))
-        migrate_db(conn)
-        # Vide les edges (recalculées depuis le JSON)
-        conn.execute("DELETE FROM edges")
-        conn.commit()
-    else:
-        conn = create_database(db_path)
+    # Recréer graph.db (edges + config seulement)
+    graph_conn = create_database(db_path)
+    parse_json_to_db(json_path, graph_conn)
 
-    card_ids = parse_json_to_db(json_path, conn)
-    crt = get_collection_crt()
-    sync_anki_state(conn, crt, card_ids)
-    restored = restore_local_cards_to_graph()
-    if restored:
-        print(f"  Restored {restored} local card(s) to graph.db")
-    compute_blocking_states(conn)
-    report = get_blocking_report(conn)
-    conn.close()
+    # Recalculer le blocking dans cards.db
+    cards_conn = get_cards_db_conn()
+    try:
+        compute_blocking_states(cards_conn, graph_conn)
+        report = get_blocking_report(cards_conn)
+    finally:
+        cards_conn.close()
+    graph_conn.close()
 
     print("Blocking report:")
     print(f"  Total cards: {report['total_cards']}")

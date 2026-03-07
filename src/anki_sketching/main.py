@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from src.anki_sketching.api import routes as api_routes
 from src.anki_sketching.web import routes as web_routes
+from src.graph.cards_db import migrate_from_legacy, get_cards_db_conn, migrate_cards_db
 from src.graph.schema import migrate_db
 from src.utilities.paths import get_data_dir
 
@@ -30,7 +31,15 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 templates_dir = get_project_root() / 'frontend' / 'templates'
 templates = Jinja2Templates(directory=str(templates_dir))
 
-# Migre le schéma graph.db si nécessaire
+# Migration legacy : card_info.db + graph.db card_state → cards.db
+migrate_from_legacy()
+
+# Migre cards.db si nécessaire
+cards_conn = get_cards_db_conn()
+migrate_cards_db(cards_conn)
+cards_conn.close()
+
+# Migre graph.db si nécessaire (edges + config)
 db_path = get_data_dir() / "graph.db"
 if db_path.exists():
     _conn = sqlite3.connect(str(db_path))

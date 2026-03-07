@@ -1,9 +1,10 @@
 """
-Calcule is_blocking et is_blocked et met à jour card_state.
+Calcule is_blocking et is_blocked et met à jour la table cards (cards.db).
+Les edges sont lues depuis graph.db.
 """
 import sqlite3
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 def _is_blocking_row(
@@ -28,9 +29,9 @@ def _is_blocking_row(
     return False
 
 
-def _get_children(db_conn: sqlite3.Connection, parent_card_id: str) -> List[str]:
-    """Retourne la liste des child_card_id pour ce parent."""
-    cursor = db_conn.cursor()
+def _get_children(graph_conn: sqlite3.Connection, parent_card_id: str) -> list[str]:
+    """Retourne la liste des child_card_id pour ce parent (depuis graph.db edges)."""
+    cursor = graph_conn.cursor()
     cursor.execute(
         "SELECT child_card_id FROM edges WHERE parent_card_id = ?",
         (parent_card_id,),
@@ -38,53 +39,54 @@ def _get_children(db_conn: sqlite3.Connection, parent_card_id: str) -> List[str]
     return [row[0] for row in cursor.fetchall()]
 
 
-def _mark_descendants_blocked(db_conn: sqlite3.Connection, parent_card_id: str) -> None:
-    """Met is_blocked=True pour tous les enfants de ce parent et leurs descendants (DFS)."""
-    cursor = db_conn.cursor()
-    for child_id in _get_children(db_conn, parent_card_id):
-        cursor.execute(
-            "UPDATE card_state SET is_blocked = 1 WHERE card_id = ?",
+def _mark_descendants_blocked(
+    cards_conn: sqlite3.Connection,
+    graph_conn: sqlite3.Connection,
+    parent_card_id: str,
+) -> None:
+    """Met is_blocked=True pour tous les descendants (DFS via graph.db edges, écriture dans cards.db)."""
+    for child_id in _get_children(graph_conn, parent_card_id):
+        cards_conn.execute(
+            "UPDATE cards SET is_blocked = 1 WHERE card_id = ?",
             (child_id,),
         )
-        _mark_descendants_blocked(db_conn, child_id)
+        _mark_descendants_blocked(cards_conn, graph_conn, child_id)
 
 
-def compute_blocking_states(db_conn: sqlite3.Connection) -> None:
+def compute_blocking_states(
+    cards_conn: sqlite3.Connection,
+    graph_conn: sqlite3.Connection,
+) -> None:
     """
-    Phase 1 : calcule is_blocking pour chaque carte et met à jour la DB.
-    Phase 2 : propage is_blocked depuis chaque carte blocking vers ses descendants.
+    Phase 1 : calcule is_blocking pour chaque carte (cards.db).
+    Phase 2 : propage is_blocked via les edges (graph.db) vers cards.db.
     """
-    cursor = db_conn.cursor()
-    cursor.execute(
-        "SELECT card_id, card_type, queue, due_date FROM card_state"
-    )
+    cursor = cards_conn.cursor()
+    cursor.execute("SELECT card_id, card_type, queue, due_date FROM cards")
     rows = cursor.fetchall()
 
     for card_id, card_type, queue, due_date in rows:
         is_blocking = 1 if _is_blocking_row(card_type, queue, due_date) else 0
         cursor.execute(
-            "UPDATE card_state SET is_blocking = ? WHERE card_id = ?",
+            "UPDATE cards SET is_blocking = ? WHERE card_id = ?",
             (is_blocking, card_id),
         )
 
-    cursor.execute("UPDATE card_state SET is_blocked = 0")
+    cursor.execute("UPDATE cards SET is_blocked = 0")
 
     for card_id, card_type, queue, due_date in rows:
-        is_blocking = _is_blocking_row(card_type, queue, due_date)
-        if is_blocking:
-            _mark_descendants_blocked(db_conn, card_id)
+        if _is_blocking_row(card_type, queue, due_date):
+            _mark_descendants_blocked(cards_conn, graph_conn, card_id)
 
-    db_conn.commit()
+    cards_conn.commit()
 
 
-def get_blocking_report(db_conn: sqlite3.Connection) -> Dict[str, Any]:
-    """
-    Retourne un rapport avec statistiques et listes des cartes blocking/blocked.
-    """
-    cursor = db_conn.cursor()
+def get_blocking_report(cards_conn: sqlite3.Connection) -> dict[str, Any]:
+    """Retourne un rapport avec statistiques et listes des cartes blocking/blocked."""
+    cursor = cards_conn.cursor()
     cursor.execute(
         """SELECT card_id, card_type, queue, due_date, is_blocking, is_blocked
-           FROM card_state ORDER BY card_id"""
+           FROM cards ORDER BY card_id"""
     )
     rows = cursor.fetchall()
     columns = ["card_id", "card_type", "queue", "due_date", "is_blocking", "is_blocked"]
