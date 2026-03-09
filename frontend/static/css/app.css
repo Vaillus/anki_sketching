@@ -664,6 +664,33 @@ body {
     max-height: 300px;
     border-radius: 6px;
     object-fit: contain;
+    cursor: zoom-in;
+}
+
+#lightbox-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+#lightbox-backdrop.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+#lightbox-img {
+    max-width: 75vw;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 8px;
+    display: block;
 }
 
 #reviewer-show-answer-wrap {

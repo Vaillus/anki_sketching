@@ -55,6 +55,8 @@
         `;
         document.body.appendChild(backdrop);
 
+        if (!document.getElementById('lightbox-backdrop')) createLightbox();
+
         // Fermeture backdrop
         backdrop.addEventListener('click', (e) => {
             if (e.target === backdrop) closeModal();
@@ -76,6 +78,28 @@
 
     function getOrCreateModal() {
         return document.getElementById('reviewer-backdrop') || createModal();
+    }
+
+    function createLightbox() {
+        const backdrop = document.createElement('div');
+        backdrop.id = 'lightbox-backdrop';
+        const img = document.createElement('img');
+        img.id = 'lightbox-img';
+        backdrop.appendChild(img);
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) closeLightbox();
+        });
+    }
+
+    function openLightbox(src) {
+        document.getElementById('lightbox-img').src = src;
+        document.getElementById('lightbox-backdrop').classList.add('visible');
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightbox-backdrop').classList.remove('visible');
     }
 
     // ── Open / Close ─────────────────────────────────────────────────────────
@@ -106,6 +130,10 @@
             ${frontHtml}
             ${imagesHtml ? `<div class="reviewer-images">${imagesHtml}</div>` : ''}
         `;
+
+        document.getElementById('reviewer-front').querySelectorAll('.reviewer-image').forEach(img => {
+            img.addEventListener('click', () => openLightbox(img.src));
+        });
 
         // Verso : champs restants (les images sont déjà au recto)
         document.getElementById('reviewer-back').innerHTML = `
@@ -222,7 +250,12 @@
         const modal = document.getElementById('reviewer-backdrop');
         if (!modal || !modal.classList.contains('visible')) return;
 
-        if (e.key === 'Escape') { closeModal(); return; }
+        if (e.key === 'Escape') {
+            const lb = document.getElementById('lightbox-backdrop');
+            if (lb && lb.classList.contains('visible')) { closeLightbox(); return; }
+            closeModal();
+            return;
+        }
 
         const backHidden = document.getElementById('reviewer-back').classList.contains('hidden');
         if (e.key === ' ' || e.key === 'Enter') {
