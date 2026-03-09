@@ -69,4 +69,4 @@ Eleven JS modules loaded in order via `<script>` tags in `index.html`:
 
 - **`data/card_positions.json`** — Canvas state: card positions/sizes, groups, arrows, canvas x/y/zoom. Auto-saved on changes. Gitignored.
 - **`data/graph.db`** — SQLite dependency graph. Must be rebuilt with `build_graph.py` when the canvas layout changes. Gitignored.
-- **`frontend/static/images/`** — Card images extracted from Anki on import. Gitignored.
+- **`frontend/static/images/`** — Card images. Anki-imported images (e.g. `Pasted image *.png`) are gitignored and re-downloadable via import. Local card images (`local_*`) are tracked in git so they sync across machines.
