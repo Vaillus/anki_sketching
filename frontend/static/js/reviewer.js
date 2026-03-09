@@ -192,6 +192,26 @@
 
         closeModal();
 
+        // Mettre à jour le due_display sur la carte canvas
+        try {
+            const infoRes = await fetch('/get_cards_by_ids', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_ids: [card.card_id] }),
+            });
+            const infoData = await infoRes.json();
+            if (infoData.success && infoData.cards.length > 0) {
+                const updated = infoData.cards[0];
+                const cardEl = document.querySelector(`[data-card-id="${card.card_id}"]`);
+                if (cardEl) {
+                    const dueEl = cardEl.querySelector('.card-due');
+                    if (dueEl) dueEl.textContent = updated.due_display || '';
+                }
+            }
+        } catch (err) {
+            console.error('reviewer: failed to refresh card display', err);
+        }
+
         // Rafraîchir la barre des cartes dues
         if (typeof loadDueCards === 'function') loadDueCards();
         if (typeof applyBlockingHighlights === 'function') applyBlockingHighlights();
