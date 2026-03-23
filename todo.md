@@ -13,3 +13,4 @@
 - [ ] voir pourquoi certaines cartes sont marquees "a reviser" plutot que mqrquees "aujourd'hui"
 - [ ] verifier comment les cartes sortnet de l'etat "new"
 - [ ] exporter la db
+- [ ] zoomer sur l'image en cours de revision
