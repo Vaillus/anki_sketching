@@ -25,10 +25,8 @@ let selectedArrows = new Set(); // Flèches sélectionnées
 
 // Variables pour le redimensionnement des cartes
 let resizingState = null; // { element, edges, startX, startY, startLeft, startTop, startW, startH }
-const RESIZE_BORDER_PX = 10;
 const MIN_CARD_WIDTH_PX = 180;
 const MIN_CARD_HEIGHT_PX = 120;
-const SCROLLBAR_GUTTER_PX = 16;
 
 // Variables globales pour la physique
 let isRepelling = false; // Flag pour éviter les conflits de répulsion

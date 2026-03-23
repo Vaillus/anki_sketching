@@ -1,39 +1,35 @@
-function getPointerPosInElement(element, clientX, clientY) {
-    const rect = element.getBoundingClientRect();
-    return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-        w: rect.width,
-        h: rect.height
-    };
-}
+// Resize is now triggered exclusively from the .resize-handle element
+// injected by makeDraggable(). The global mousemove/mouseup handlers below
+// perform the actual resizing (always bottom-right).
 
-function getResizeEdges(element, clientX, clientY) {
-    const pos = getPointerPosInElement(element, clientX, clientY);
-    const x = pos.x;
-    const y = pos.y;
-    const w = pos.w;
-    const h = pos.h;
+document.addEventListener('mousemove', (e) => {
+    if (!resizingState) return;
 
-    const style = window.getComputedStyle(element);
-    const hasVScroll = (style.overflowY === 'auto' || style.overflowY === 'scroll') && element.scrollHeight > element.clientHeight;
-    const hasHScroll = (style.overflowX === 'auto' || style.overflowX === 'scroll') && element.scrollWidth > element.clientWidth;
-    if (hasVScroll && x >= w - SCROLLBAR_GUTTER_PX) return null;
-    if (hasHScroll && y >= h - SCROLLBAR_GUTTER_PX) return null;
+    const dx = (e.clientX - resizingState.startX) / zoom;
+    const dy = (e.clientY - resizingState.startY) / zoom;
 
-    const left = x <= RESIZE_BORDER_PX;
-    const right = x >= w - RESIZE_BORDER_PX;
-    const top = y <= RESIZE_BORDER_PX;
-    const bottom = y >= h - RESIZE_BORDER_PX;
+    let newW = Math.max(resizingState.startW + dx, MIN_CARD_WIDTH_PX);
+    let newH = Math.max(resizingState.startH + dy, MIN_CARD_HEIGHT_PX);
 
-    if (!left && !right && !top && !bottom) return null;
-    return { left, right, top, bottom };
-}
+    newW = Math.round(newW);
+    newH = Math.round(newH);
 
-function getResizeCursor(edges) {
-    if ((edges.left && edges.top) || (edges.right && edges.bottom)) return 'nwse-resize';
-    if ((edges.right && edges.top) || (edges.left && edges.bottom)) return 'nesw-resize';
-    if (edges.left || edges.right) return 'ew-resize';
-    if (edges.top || edges.bottom) return 'ns-resize';
-    return 'nwse-resize';
-}
+    resizingState.element.style.width = newW + 'px';
+    resizingState.element.style.height = newH + 'px';
+
+    updateAllArrows();
+    const cardId = resizingState.element.getAttribute('data-card-id');
+    if (cardId && cardGroups.has(cardId)) {
+        updateGroupBounds(cardGroups.get(cardId));
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    if (!resizingState) return;
+    resizingState.element.style.transition = 'left 0.3s ease-out, top 0.3s ease-out, border-color 0.2s ease';
+    setTimeout(() => {
+        repelOverlappingCards();
+        updateAllGroups();
+    }, 50);
+    resizingState = null;
+});

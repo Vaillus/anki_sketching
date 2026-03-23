@@ -116,6 +116,27 @@ function makeDraggable(element) {
     let startX, startY, startLeft, startTop;
     let hasMoved = false; // Pour distinguer clic et drag
 
+    // Inject resize handle
+    const handle = document.createElement('div');
+    handle.className = 'resize-handle';
+    element.appendChild(handle);
+
+    // Resize starts only from the handle
+    handle.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        hasMoved = true;
+        resizingState = {
+            element: element,
+            startX: e.clientX,
+            startY: e.clientY,
+            startW: element.offsetWidth,
+            startH: element.offsetHeight
+        };
+        element.style.transition = 'none';
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
     element.addEventListener('mousedown', (e) => {
         // Gestion du clic droit pour le menu contextuel
         if (e.button === 2) {
@@ -124,37 +145,13 @@ function makeDraggable(element) {
             showContextMenu(e.clientX, e.clientY, element);
             return;
         }
-        
+
         // Gestion du clic gauche
         if (e.button === 0) {
             // Si on clique dans le corps de la carte, laisser le navigateur gérer la sélection de texte
             const isInTextContent = e.target.closest('.card-content') && !e.target.closest('.card-info');
             if (isInTextContent) {
                 e.stopPropagation(); // empêche le pan du canvas
-                return;
-            }
-
-            // Si on clique sur la bordure, on redimensionne au lieu de déplacer
-            const resizeEdges = getResizeEdges(element, e.clientX, e.clientY);
-            if (resizeEdges) {
-                hasMoved = true; // évite le toggle de sélection sur click après resize
-                resizingState = {
-                    element: element,
-                    edges: resizeEdges,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    startLeft: parseInt(element.style.left) || 0,
-                    startTop: parseInt(element.style.top) || 0,
-                    startW: element.offsetWidth,
-                    startH: element.offsetHeight
-                };
-
-                // Désactive temporairement les transitions pendant le resize
-                element.style.transition = 'none';
-                element.style.cursor = getResizeCursor(resizeEdges);
-
-                e.preventDefault();
-                e.stopPropagation();
                 return;
             }
 
@@ -165,30 +162,13 @@ function makeDraggable(element) {
             startLeft = parseInt(element.style.left) || 0;
             startTop = parseInt(element.style.top) || 0;
             element.style.zIndex = Math.max(++cardCounter, 10); // Toujours au moins 10 pour être au-dessus des groupes
-            
+
             // Désactive temporairement les transitions pendant le drag
             element.style.transition = 'none';
-            
+
             e.preventDefault();
             e.stopPropagation();
         }
-    });
-
-    element.addEventListener('mousemove', (e) => {
-        if (resizingState && resizingState.element === element) return;
-        const edges = getResizeEdges(element, e.clientX, e.clientY);
-        if (edges) {
-            element.style.cursor = getResizeCursor(edges);
-        } else if (e.target.closest('.card-content') && !e.target.closest('.card-info')) {
-            element.style.cursor = '';
-        } else {
-            element.style.cursor = 'move';
-        }
-    });
-
-    element.addEventListener('mouseleave', () => {
-        if (resizingState && resizingState.element === element) return;
-        element.style.cursor = 'move';
     });
 
     element.addEventListener('click', (e) => {
