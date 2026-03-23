@@ -4,9 +4,9 @@
     "dessin::perspective::4-formes organique"
   ],
   "canvas": {
-    "x": -11.532374861318203,
-    "y": -2768.589565714795,
-    "zoom": 0.7696767111769066
+    "x": 565.1743935361527,
+    "y": -436.91121788557894,
+    "zoom": 0.4931457527046146
   },
   "cards": {
     "1721160391157": {
@@ -40,7 +40,7 @@
     "1721161532151": {
       "left": -965,
       "top": 100,
-      "zIndex": 50,
+      "zIndex": 377,
       "width": 327,
       "height": 408
     },
@@ -59,18 +59,18 @@
       "height": 709
     },
     "1721162460243": {
-      "left": 1046,
-      "top": 1729,
-      "zIndex": 195,
+      "left": 1051,
+      "top": 1661,
+      "zIndex": 368,
       "width": 180,
       "height": 587
     },
     "1721162306335": {
-      "left": 995,
-      "top": 1310,
-      "zIndex": 194,
+      "left": 994,
+      "top": 1250,
+      "zIndex": 375,
       "width": 282,
-      "height": 267
+      "height": 274
     },
     "1721161655016": {
       "left": 989,
@@ -80,9 +80,9 @@
       "height": 629
     },
     "1721161770949": {
-      "left": 1510,
-      "top": 1737,
-      "zIndex": 198,
+      "left": 1515,
+      "top": 1669,
+      "zIndex": 369,
       "width": 291,
       "height": 571
     },
@@ -241,23 +241,23 @@
       "height": 625
     },
     "local_05e06498": {
-      "left": 1601,
-      "top": 2637,
-      "zIndex": 349,
+      "left": 2410,
+      "top": 1686,
+      "zIndex": 372,
       "width": 527,
       "height": 535
     },
     "local_36f302bb": {
-      "left": -2400,
-      "top": 177,
-      "zIndex": 356,
+      "left": -2207,
+      "top": 50,
+      "zIndex": 376,
       "width": 626,
       "height": 437
     },
     "local_65200748": {
-      "left": 1355,
-      "top": 3375,
-      "zIndex": 359,
+      "left": 1884,
+      "top": 1673,
+      "zIndex": 373,
       "width": 482,
       "height": 427
     }
@@ -305,6 +305,15 @@
         "1721692670500",
         "1721692635046"
       ]
+    },
+    "group_7": {
+      "name": "Groupe 7",
+      "cards": [
+        "1721162460243",
+        "1721161770949",
+        "local_05e06498",
+        "local_65200748"
+      ]
     }
   },
   "arrows": [
@@ -351,20 +360,8 @@
       "toAnchor": "top"
     },
     {
-      "from": "1721162306335",
-      "to": "1721162460243",
-      "fromAnchor": "bottom",
-      "toAnchor": "top"
-    },
-    {
       "from": "1721162460243",
       "to": "1721162416814",
-      "fromAnchor": "bottom",
-      "toAnchor": "top"
-    },
-    {
-      "from": "1721162306335",
-      "to": "1721161770949",
       "fromAnchor": "bottom",
       "toAnchor": "top"
     },
@@ -467,6 +464,18 @@
     {
       "from": "1721160872420",
       "to": "1725241526902",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "1721162306335",
+      "to": "group_7",
+      "fromAnchor": "bottom",
+      "toAnchor": "top"
+    },
+    {
+      "from": "local_36f302bb",
+      "to": "1721160506870",
       "fromAnchor": "bottom",
       "toAnchor": "top"
     }
