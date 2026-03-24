@@ -205,12 +205,183 @@ body {
 
 #learn-right {
     flex: 1;
+    overflow-y: auto;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #7a6eaa;
     font-size: 14px;
     font-style: italic;
+}
+
+#learn-right::-webkit-scrollbar {
+    width: 4px;
+}
+#learn-right::-webkit-scrollbar-track { background: #150c3a; }
+#learn-right::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
+
+/* Context panel sections */
+
+.context-loading,
+.context-empty {
+    color: #7a6eaa;
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* ── Context bar (parents / children) ── */
+
+.context-bar {
+    flex-shrink: 0;
+    padding: 10px 16px 6px;
+    border-bottom: 1px solid #2b1f6b;
+}
+
+.context-bar--children {
+    border-bottom: none;
+    border-top: 1px solid #2b1f6b;
+}
+
+.context-bar-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #5a4aaa;
+    margin-bottom: 8px;
+}
+
+.context-bar-empty {
+    font-size: 11px;
+    color: #3a2b86;
+    font-style: italic;
+}
+
+.context-bar-scroll {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.context-bar-scroll::-webkit-scrollbar { height: 3px; }
+.context-bar-scroll::-webkit-scrollbar-track { background: #150c3a; }
+.context-bar-scroll::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
+
+/* ── Miniature card (in bars) ── */
+
+.context-mini {
+    flex-shrink: 0;
+    width: 120px;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.context-mini:hover {
+    border-color: #5a4aaa;
+    background: #34257a;
+}
+
+.context-mini.is-due {
+    border-color: #5a4aaa;
+}
+
+.context-mini.highlight {
+    border-color: #b4a8ff;
+    background: #3a2b86;
+}
+
+.context-mini-badge {
+    padding: 4px 6px 2px;
+}
+
+.context-mini-image {
+    width: 100%;
+    background: #1a1330;
+}
+
+.context-mini-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    max-height: 80px;
+}
+
+.context-mini-title {
+    font-size: 10px;
+    color: #c8c0f0;
+    padding: 3px 6px 5px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+}
+
+/* ── Main selected card (large) ── */
+
+.context-main-card {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.context-main-card::-webkit-scrollbar { width: 4px; }
+.context-main-card::-webkit-scrollbar-track { background: #150c3a; }
+.context-main-card::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
+
+.context-main-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-main-images {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.context-main-images img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.context-main-texts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.context-main-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.context-main-field-name {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #5a4aaa;
+}
+
+.context-main-field-value {
+    font-size: 14px;
+    color: #f1eeff;
+    line-height: 1.5;
 }
 
 /* ── Loading / empty states ── */
