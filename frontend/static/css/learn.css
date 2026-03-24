@@ -90,7 +90,9 @@ body {
 
 #due-cards-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, 130px);
+    justify-content: center;
+    align-content: start;
     gap: 10px;
     padding: 12px;
     overflow-y: auto;
@@ -113,6 +115,9 @@ body {
 /* ── Card component (grid) ── */
 
 .learn-card {
+    width: 130px;
+    height: 182px;
+    flex-shrink: 0;
     background: #2b1f6b;
     border: 1px solid #3a2b86;
     border-radius: 8px;
@@ -121,7 +126,6 @@ body {
     display: flex;
     flex-direction: column;
     transition: border-color 0.15s ease, background 0.15s ease;
-    min-height: 160px;
 }
 
 .learn-card:hover {
@@ -149,9 +153,9 @@ body {
 }
 
 .learn-card-image {
-    width: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
-    flex-shrink: 0;
     background: #1a1330;
     display: flex;
     align-items: center;
@@ -160,21 +164,21 @@ body {
 
 .learn-card-image img {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
     object-fit: contain;
 }
 
 .learn-card-title {
-    font-size: 11px;
+    font-size: 10px;
     color: #c8c0f0;
-    padding: 4px 8px;
+    padding: 4px 8px 5px;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-height: 1.4;
-    flex: 1;
+    line-height: 1.3;
+    flex-shrink: 0;
 }
 
 .learn-card-empty {
@@ -207,8 +211,8 @@ body {
     flex: 1;
     overflow-y: auto;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: flex-start;
     color: #7a6eaa;
     font-size: 14px;
     font-style: italic;
@@ -268,14 +272,17 @@ body {
 .context-bar-scroll::-webkit-scrollbar-track { background: #150c3a; }
 .context-bar-scroll::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
 
-/* ── Miniature card (in bars) ── */
+/* ── Miniature card (in bars) — même format que .learn-card, un peu plus grande ── */
 
 .context-mini {
     flex-shrink: 0;
-    width: 120px;
+    width: 130px;
+    height: 182px;
+    display: flex;
+    flex-direction: column;
     background: #2b1f6b;
     border: 1px solid #3a2b86;
-    border-radius: 6px;
+    border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
@@ -296,92 +303,195 @@ body {
 }
 
 .context-mini-badge {
-    padding: 4px 6px 2px;
+    padding: 6px 8px 4px;
+    flex-shrink: 0;
 }
 
 .context-mini-image {
-    width: 100%;
+    flex: 1;
+    min-height: 0;
     background: #1a1330;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .context-mini-image img {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
     object-fit: contain;
-    max-height: 80px;
 }
 
 .context-mini-title {
     font-size: 10px;
     color: #c8c0f0;
-    padding: 3px 6px 5px;
+    padding: 4px 8px 5px;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     line-height: 1.3;
+    flex-shrink: 0;
 }
 
-/* ── Main selected card (large) ── */
 
-.context-main-card {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+.hidden { display: none !important; }
+
+/* ── Inline reviewer ── */
+
+.learn-reviewer {
+    width: 100%;
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
+    border-top: 1px solid #2b1f6b;
 }
 
-.context-main-card::-webkit-scrollbar { width: 4px; }
-.context-main-card::-webkit-scrollbar-track { background: #150c3a; }
-.context-main-card::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
-
-.context-main-badges {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.context-main-images {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.context-main-images img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 4px;
-    object-fit: contain;
-}
-
-.context-main-texts {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.context-main-field {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.context-main-field-name {
-    font-size: 9px;
+.reviewer-section-label {
+    font-size: 10px;
+    font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
     color: #5a4aaa;
+    margin-bottom: 6px;
 }
 
-.context-main-field-value {
-    font-size: 14px;
+.reviewer-field {
+    margin-bottom: 8px;
+}
+
+.reviewer-field-name {
+    font-size: 10px;
+    color: #5a4aaa;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.reviewer-field-value {
+    font-size: 15px;
     color: #f1eeff;
     line-height: 1.5;
+}
+
+.reviewer-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.reviewer-image {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 6px;
+    object-fit: contain;
+    cursor: zoom-in;
+}
+
+.reviewer-divider {
+    border-top: 1px solid #3a2b86;
+    margin: 4px 0;
+}
+
+.lr-show-answer-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.lr-show-answer-btn {
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    color: #f1eeff;
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.lr-show-answer-btn:hover {
+    background: #34257a;
+}
+
+.lr-ease-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.ease-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    min-width: 80px;
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.ease-btn:hover  { filter: brightness(1.15); transform: translateY(-1px); }
+.ease-btn:active { transform: translateY(0); }
+
+.ease-again  { background: #c0392b; }
+.ease-hard   { background: #d67c22; }
+.ease-good   { background: #27ae60; }
+.ease-easy   { background: #2980b9; }
+
+.ease-label    { font-size: 14px; font-weight: bold; }
+.ease-interval { font-size: 11px; opacity: 0.85; font-weight: normal; }
+
+.lr-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    border-top: 1px solid #2b1f6b;
+    padding-top: 12px;
+}
+
+.stat-item {
+    font-size: 11px;
+    color: #7a6eaa;
+}
+
+.stat-item:empty { display: none; }
+
+/* ── Lightbox ── */
+
+#lightbox-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+#lightbox-backdrop.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+#lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    display: block;
 }
 
 /* ── Loading / empty states ── */
