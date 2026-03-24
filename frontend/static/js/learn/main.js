@@ -146,15 +146,22 @@ function renderContextPanel(card, parents, children) {
     const right = document.getElementById('learn-right');
     right.innerHTML = '';
 
+    // Remove old SVG overlay if any
+    const oldSvg = right.querySelector('.connector-svg');
+    if (oldSvg) oldSvg.remove();
+
     // Parents bar
     right.appendChild(buildContextBar(parents, 'Parents', 'parents'));
+
+    // Current card row (card + ease buttons)
+    const fullCard = allDueCards.find(c => c.card_id === card.card_id) || card;
+    right.appendChild(buildCurrentCardRow(fullCard));
 
     // Children bar
     right.appendChild(buildContextBar(children, 'Enfants', 'children'));
 
-    // Reviewer — prend les données SRS complètes depuis allDueCards
-    const fullCard = allDueCards.find(c => c.card_id === card.card_id) || card;
-    right.appendChild(buildInlineReviewer(fullCard));
+    // Draw SVG connectors after DOM settles
+    requestAnimationFrame(() => drawConnectors(right));
 }
 
 function buildContextBar(cards, label, role) {
@@ -219,14 +226,14 @@ function buildMiniCard(card) {
     return el;
 }
 
-// ── Inline reviewer ───────────────────────────────────────────────────────────
+// ── Current card row (card + ease buttons) ───────────────────────────────────
 
-function buildInlineReviewer(card) {
+function buildCurrentCardRow(card) {
     reviewerCard = card;
 
-    const section = document.createElement('div');
-    section.id = 'learn-reviewer';
-    section.className = 'learn-reviewer';
+    const row = document.createElement('div');
+    row.id = 'learn-reviewer';
+    row.className = 'current-card-row';
 
     const allFields = Object.entries(card.texts || {});
     const firstField = allFields.slice(0, 1);
@@ -242,25 +249,33 @@ function buildInlineReviewer(card) {
 
     const intervals = card.next_reviews || [];
     const minVal = cardMinIntervals.get(String(card.card_id)) || '';
+    const typeClass = (card.type_label || 'new').toLowerCase();
 
-    section.innerHTML = `
-        <div class="lr-front">
+    // Current card element
+    const cardEl = document.createElement('div');
+    cardEl.className = 'context-current-card';
+
+    cardEl.innerHTML = `
+        <div class="context-mini-badge"><span class="card-type ${typeClass}">${card.type_label}</span></div>
+        ${imagesHtml ? `<div class="current-card-images">${imagesHtml}</div>` : ''}
+        <div class="current-card-fields">
             <div class="reviewer-section-label">Recto</div>
             ${renderFields(firstField) || '<div class="reviewer-field-value">(sans texte)</div>'}
-            ${imagesHtml ? `<div class="reviewer-images">${imagesHtml}</div>` : ''}
+            ${remainingFields.length > 0 ? `
+            <div class="lr-back">
+                <div class="reviewer-divider"></div>
+                <div class="reviewer-section-label">Verso</div>
+                ${renderFields(remainingFields)}
+            </div>` : ''}
         </div>
+    `;
 
-        <div class="lr-show-answer-wrap">
-            <button class="lr-show-answer-btn">Voir la réponse</button>
-        </div>
+    // Ease column
+    const easeCol = document.createElement('div');
+    easeCol.className = 'ease-column';
 
-        <div class="lr-back hidden">
-            <div class="reviewer-divider"></div>
-            <div class="reviewer-section-label">Verso</div>
-            ${renderFields(remainingFields) || '<div class="reviewer-field-value">(sans champ supplémentaire)</div>'}
-        </div>
-
-        <div class="lr-ease-buttons hidden">
+    easeCol.innerHTML = `
+        <div class="lr-ease-buttons">
             <button class="ease-btn ease-again" data-ease="1">
                 <span class="ease-label">Again</span>
                 <span class="ease-interval">${intervals[0] || ''}</span>
@@ -278,8 +293,7 @@ function buildInlineReviewer(card) {
                 <span class="ease-interval">${intervals[3] || ''}</span>
             </button>
         </div>
-
-        <div class="lr-stats hidden">
+        <div class="lr-stats">
             <span class="stat-item">${card.interval > 0 ? `Intervalle : ${card.interval}j` : `Type : ${card.type_label || ''}`}</span>
             <span class="stat-item">${card.factor_percent > 0 ? `Ease : ${card.factor_percent.toFixed(0)}%` : ''}</span>
             <span class="stat-item">${card.reps !== undefined ? `Révisions : ${card.reps}` : ''}</span>
@@ -288,21 +302,25 @@ function buildInlineReviewer(card) {
         </div>
     `;
 
+    const spacer = document.createElement('div');
+    spacer.className = 'ease-column-spacer';
+
+    row.appendChild(spacer);
+    row.appendChild(cardEl);
+    row.appendChild(easeCol);
+
     // Images zoomables
-    section.querySelectorAll('.reviewer-image').forEach(img => {
+    row.querySelectorAll('.reviewer-image').forEach(img => {
         img.addEventListener('click', () => openLightbox(img.src));
     });
 
-    // Voir la réponse
-    section.querySelector('.lr-show-answer-btn').addEventListener('click', revealAnswer);
-
     // Boutons ease
-    section.querySelectorAll('.ease-btn').forEach(btn => {
+    row.querySelectorAll('.ease-btn').forEach(btn => {
         btn.addEventListener('click', () => submitAnswer(parseInt(btn.dataset.ease)));
     });
 
     // Min interval
-    section.querySelector('.min-interval-input').addEventListener('change', e => {
+    row.querySelector('.min-interval-input').addEventListener('change', e => {
         const v = parseInt(e.target.value);
         const key = String(card.card_id);
         const newVal = v > 0 ? v : null;
@@ -315,17 +333,84 @@ function buildInlineReviewer(card) {
         });
     });
 
-    return section;
+    return row;
 }
 
-function revealAnswer() {
-    const reviewer = document.getElementById('learn-reviewer');
-    if (!reviewer) return;
-    reviewer.querySelector('.lr-back').classList.remove('hidden');
-    reviewer.querySelector('.lr-ease-buttons').classList.remove('hidden');
-    reviewer.querySelector('.lr-stats').classList.remove('hidden');
-    reviewer.querySelector('.lr-show-answer-wrap').classList.add('hidden');
+// ── SVG connector lines ──────────────────────────────────────────────────────
+
+function drawConnectors(container) {
+    // Remove old SVG
+    const old = container.querySelector('.connector-svg');
+    if (old) old.remove();
+
+    const currentCard = container.querySelector('.context-current-card');
+    if (!currentCard) return;
+
+    const parentMinis = container.querySelectorAll('.context-bar--parents .context-mini');
+    const childMinis = container.querySelectorAll('.context-bar--children .context-mini');
+
+    if (parentMinis.length === 0 && childMinis.length === 0) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('connector-svg');
+
+    const containerRect = container.getBoundingClientRect();
+
+    const relPos = (el) => {
+        const r = el.getBoundingClientRect();
+        return {
+            top: r.top - containerRect.top + container.scrollTop,
+            bottom: r.bottom - containerRect.top + container.scrollTop,
+            centerX: r.left + r.width / 2 - containerRect.left,
+        };
+    };
+
+    const cardPos = relPos(currentCard);
+
+    const drawArrow = (fromX, fromY, toX, toY) => {
+        const dy = toY - fromY;
+        const cp = Math.max(Math.abs(dy) * 0.4, 20);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M${fromX},${fromY} C${fromX},${fromY + cp} ${toX},${toY - cp} ${toX},${toY}`);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'rgba(90,74,170,0.6)');
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('marker-end', 'url(#connector-arrow)');
+        svg.appendChild(path);
+    };
+
+    // Arrow marker
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', 'connector-arrow');
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '10');
+    marker.setAttribute('refY', '5');
+    marker.setAttribute('markerWidth', '6');
+    marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    arrowPath.setAttribute('fill', 'rgba(90,74,170,0.6)');
+    marker.appendChild(arrowPath);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    // Parent → current card
+    parentMinis.forEach(mini => {
+        const p = relPos(mini);
+        drawArrow(p.centerX, p.bottom, cardPos.centerX, cardPos.top);
+    });
+
+    // Current card → children
+    childMinis.forEach(mini => {
+        const p = relPos(mini);
+        drawArrow(cardPos.centerX, cardPos.bottom, p.centerX, p.top);
+    });
+
+    container.appendChild(svg);
 }
+
 
 async function submitAnswer(ease) {
     if (!reviewerCard) return;
@@ -358,23 +443,11 @@ async function submitAnswer(ease) {
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
-    const reviewer = document.getElementById('learn-reviewer');
-    if (!reviewer) return;
-
-    const backHidden = reviewer.querySelector('.lr-back').classList.contains('hidden');
-
-    if ((e.key === ' ' || e.key === 'Enter') && backHidden) {
-        e.preventDefault();
-        revealAnswer();
-        return;
-    }
-
-    if (!backHidden) {
-        if (e.key === '1') submitAnswer(1);
-        else if (e.key === '2') submitAnswer(2);
-        else if (e.key === '3') submitAnswer(3);
-        else if (e.key === '4') submitAnswer(4);
-    }
+    if (!document.getElementById('learn-reviewer')) return;
+    if (e.key === '1') submitAnswer(1);
+    else if (e.key === '2') submitAnswer(2);
+    else if (e.key === '3') submitAnswer(3);
+    else if (e.key === '4') submitAnswer(4);
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -382,4 +455,12 @@ document.addEventListener('keydown', e => {
 document.addEventListener('DOMContentLoaded', () => {
     loadDueCards();
     document.getElementById('learn-refresh').addEventListener('click', loadDueCards);
+
+    // Redraw connectors on resize
+    window.addEventListener('resize', () => {
+        const right = document.getElementById('learn-right');
+        if (right.querySelector('.context-current-card')) {
+            drawConnectors(right);
+        }
+    });
 });
