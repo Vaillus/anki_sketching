@@ -3,6 +3,7 @@ Calcule is_blocking et is_blocked et met à jour la table cards (cards.db).
 Les edges sont lues depuis graph.db.
 """
 import sqlite3
+from collections import defaultdict, deque
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -78,6 +79,47 @@ def compute_blocking_states(
         if _is_blocking_row(card_type, queue, due_date):
             _mark_descendants_blocked(cards_conn, graph_conn, card_id)
 
+    cards_conn.commit()
+
+
+def compute_topo_depths(
+    cards_conn: sqlite3.Connection,
+    graph_conn: sqlite3.Connection,
+) -> None:
+    """Calcule la profondeur topologique de chaque carte et la stocke dans cards.db."""
+    edges = graph_conn.execute(
+        "SELECT parent_card_id, child_card_id FROM edges"
+    ).fetchall()
+
+    children: dict[str, set[str]] = defaultdict(set)
+    parents: dict[str, set[str]] = defaultdict(set)
+    all_nodes: set[str] = set()
+    for parent, child in edges:
+        children[parent].add(child)
+        parents[child].add(parent)
+        all_nodes.update([parent, child])
+
+    depths: dict[str, int] = {}
+    queue: deque[str] = deque()
+    for node in all_nodes:
+        if not parents[node]:
+            depths[node] = 0
+            queue.append(node)
+
+    while queue:
+        node = queue.popleft()
+        for child in children[node]:
+            new_depth = depths[node] + 1
+            if child not in depths or depths[child] < new_depth:
+                depths[child] = new_depth
+                queue.append(child)
+
+    cards_conn.execute("UPDATE cards SET topo_depth = 0")
+    for card_id, depth in depths.items():
+        cards_conn.execute(
+            "UPDATE cards SET topo_depth = ? WHERE card_id = ?",
+            (depth, card_id),
+        )
     cards_conn.commit()
 
 

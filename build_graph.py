@@ -2,7 +2,7 @@
 """Reconstruit les edges du graphe et recalcule le blocking."""
 
 
-from src.graph.blocking import compute_blocking_states, get_blocking_report
+from src.graph.blocking import compute_blocking_states, compute_topo_depths, get_blocking_report
 from src.graph.cards_db import get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import create_database
@@ -21,6 +21,7 @@ def main() -> None:
     cards_conn = get_cards_db_conn()
     try:
         compute_blocking_states(cards_conn, graph_conn)
+        compute_topo_depths(cards_conn, graph_conn)
         report = get_blocking_report(cards_conn)
     finally:
         cards_conn.close()

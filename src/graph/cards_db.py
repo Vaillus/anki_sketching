@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS cards (
     lapses INTEGER NOT NULL DEFAULT 0,
     is_blocking BOOLEAN NOT NULL DEFAULT 0,
     is_blocked BOOLEAN NOT NULL DEFAULT 0,
+    topo_depth INTEGER NOT NULL DEFAULT 0,
     min_interval INTEGER,
     created_at TEXT
 );
@@ -54,6 +55,7 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
         ("back_text", "TEXT"),
         ("image_filename", "TEXT"),
         ("created_at", "TEXT"),
+        ("topo_depth", "INTEGER NOT NULL DEFAULT 0"),
     ]
     for col_name, col_def in add_migrations:
         if col_name not in existing:

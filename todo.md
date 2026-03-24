@@ -14,3 +14,4 @@
 - [ ] verifier comment les cartes sortnet de l'etat "new"
 - [ ] exporter la db
 - [ ] zoomer sur l'image en cours de revision
+- [ ] sauver le graph etc quand une nouvelle connection est créée.

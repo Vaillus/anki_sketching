@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
-from src.graph.blocking import compute_blocking_states
+from src.graph.blocking import compute_blocking_states, compute_topo_depths
 from src.graph.cards_db import get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import get_config, set_config, migrate_db
@@ -115,6 +115,7 @@ def _rebuild_edges_and_blocking() -> bool:
         try:
             parse_json_to_db(positions_file, graph_conn)
             compute_blocking_states(cards_conn, graph_conn)
+            compute_topo_depths(cards_conn, graph_conn)
         finally:
             cards_conn.close()
             graph_conn.close()
@@ -379,6 +380,7 @@ async def get_due_cards():
                 OR (due_date IS NOT NULL AND date(due_date) <= date('now', 'localtime'))
               )
             ORDER BY
+              topo_depth ASC,
               CASE
                 WHEN due_date IS NULL AND card_type IN (1, 3) THEN 0
                 WHEN due_date IS NOT NULL THEN 1
