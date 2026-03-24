@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from src.anki_sketching.api import routes as api_routes
 from src.anki_sketching.web import routes as web_routes
+from src.anki_sketching.learn import routes as learn_routes
 from src.graph.cards_db import migrate_from_legacy, get_cards_db_conn, migrate_cards_db
 from src.graph.schema import migrate_db
 from src.utilities.paths import get_data_dir
@@ -47,8 +48,9 @@ if db_path.exists():
     _conn.close()
 
 # Inclut les routes
-app.include_router(web_routes.router)  # Routes web (templates)
-app.include_router(api_routes.router)  # Routes API (JSON)
+app.include_router(web_routes.router)   # Routes web (templates)
+app.include_router(api_routes.router)   # Routes API (JSON)
+app.include_router(learn_routes.router) # Dashboard d'apprentissage
 
 
 if __name__ == "__main__":

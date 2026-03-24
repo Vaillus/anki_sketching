@@ -1,0 +1,225 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: sans-serif;
+    background: #211757;
+    color: #f1eeff;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Header ── */
+
+#learn-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #2b1f6b;
+    border-bottom: 1px solid #3a2b86;
+    flex-shrink: 0;
+}
+
+#nav-build-btn {
+    color: #b4a8ff;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+#nav-build-btn:hover {
+    background: #34257a;
+    border-color: #5a4aaa;
+}
+
+#learn-header h1 {
+    font-size: 16px;
+    font-weight: bold;
+    color: #b4a8ff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+#learn-count {
+    font-size: 12px;
+    color: #7a6eaa;
+    flex: 1;
+}
+
+#learn-refresh {
+    background: none;
+    border: 1px solid #3a2b86;
+    color: #b4a8ff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#learn-refresh:hover {
+    background: #34257a;
+}
+
+/* ── Main layout ── */
+
+#learn-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ── Left panel — due cards grid ── */
+
+#learn-left {
+    width: 360px;
+    min-width: 360px;
+    border-right: 1px solid #3a2b86;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#due-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+#due-cards-grid::-webkit-scrollbar {
+    width: 4px;
+}
+
+#due-cards-grid::-webkit-scrollbar-track {
+    background: #150c3a;
+}
+
+#due-cards-grid::-webkit-scrollbar-thumb {
+    background: #3a2b86;
+    border-radius: 2px;
+}
+
+/* ── Card component (grid) ── */
+
+.learn-card {
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    min-height: 160px;
+}
+
+.learn-card:hover {
+    border-color: #5a4aaa;
+    background: #34257a;
+}
+
+.learn-card.selected {
+    border-color: #b4a8ff;
+    background: #3a2b86;
+}
+
+.learn-card-badges {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 4px;
+    flex-shrink: 0;
+}
+
+.learn-card-due {
+    font-size: 10px;
+    color: #7a6eaa;
+    white-space: nowrap;
+}
+
+.learn-card-image {
+    width: 100%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #1a1330;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.learn-card-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.learn-card-title {
+    font-size: 11px;
+    color: #c8c0f0;
+    padding: 4px 8px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+    flex: 1;
+}
+
+.learn-card-empty {
+    color: #7a6eaa;
+    font-style: italic;
+}
+
+/* ── Card type badges (same as app.css) ── */
+
+.card-type {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: white;
+    background: #666;
+    flex-shrink: 0;
+}
+
+.card-type.new        { background: #2196F3; }
+.card-type.learning   { background: #FF9800; }
+.card-type.review     { background: #4CAF50; }
+.card-type.relearning { background: #F44336; }
+
+/* ── Right panel — context ── */
+
+#learn-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7a6eaa;
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ── Loading / empty states ── */
+
+.learn-state-message {
+    grid-column: 1 / -1;
+    color: #7a6eaa;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 0;
+    font-style: italic;
+}
