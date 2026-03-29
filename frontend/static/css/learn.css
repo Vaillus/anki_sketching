@@ -476,29 +476,59 @@ body {
 .ease-btn:hover  { filter: brightness(1.15); transform: translateY(-1px); }
 .ease-btn:active { transform: translateY(0); }
 
-.ease-again  { background: #c0392b; }
-.ease-hard   { background: #d67c22; }
-.ease-good   { background: #27ae60; }
-.ease-easy   { background: #2980b9; }
+.ease-failed   { background: #c0392b; }
+.ease-maintain { background: #d67c22; }
+.ease-change   { background: #2980b9; }
+
+.ease-change-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.ease-change-editor {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.change-dec,
+.change-inc,
+.change-confirm {
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    padding: 4px 8px;
+    font-size: 14px;
+    background: #3a2b86;
+    transition: filter 0.15s;
+}
+
+.change-dec:hover,
+.change-inc:hover { filter: brightness(1.3); }
+
+.change-confirm {
+    background: #2980b9;
+    padding: 4px 10px;
+}
+
+.change-confirm:hover { filter: brightness(1.15); }
+
+.change-value {
+    min-width: 28px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #f1eeff;
+}
 
 .ease-label    { font-size: 14px; font-weight: bold; }
 .ease-interval { font-size: 11px; opacity: 0.85; font-weight: normal; }
-
-.lr-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: center;
-    border-top: 1px solid #2b1f6b;
-    padding-top: 8px;
-}
-
-.stat-item {
-    font-size: 11px;
-    color: #7a6eaa;
-}
-
-.stat-item:empty { display: none; }
 
 /* ── SVG connector overlay ── */
 

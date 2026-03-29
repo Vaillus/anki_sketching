@@ -8,7 +8,6 @@
 let allDueCards = [];
 let selectedCardId = null;
 let reviewerCard = null;         // carte actuellement chargée dans le reviewer
-const cardMinIntervals = new Map();
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
@@ -247,9 +246,8 @@ function buildCurrentCardRow(card) {
         ? card.images.map(src => `<img src="${src}" class="reviewer-image" alt="">`).join('')
         : '';
 
-    const intervals = card.next_reviews || [];
-    const minVal = cardMinIntervals.get(String(card.card_id)) || '';
     const typeClass = (card.type_label || 'new').toLowerCase();
+    const currentInterval = card.interval || 1;
 
     // Current card element
     const cardEl = document.createElement('div');
@@ -276,29 +274,26 @@ function buildCurrentCardRow(card) {
 
     easeCol.innerHTML = `
         <div class="lr-ease-buttons">
-            <button class="ease-btn ease-again" data-ease="1">
-                <span class="ease-label">Again</span>
-                <span class="ease-interval">${intervals[0] || ''}</span>
+            <button class="ease-btn ease-failed" data-action="failed">
+                <span class="ease-label">Failed</span>
+                <span class="ease-interval">1j</span>
             </button>
-            <button class="ease-btn ease-hard" data-ease="2">
-                <span class="ease-label">Hard</span>
-                <span class="ease-interval">${intervals[1] || ''}</span>
+            <button class="ease-btn ease-maintain" data-action="maintain">
+                <span class="ease-label">Maintain</span>
+                <span class="ease-interval">${currentInterval}j</span>
             </button>
-            <button class="ease-btn ease-good" data-ease="3">
-                <span class="ease-label">Good</span>
-                <span class="ease-interval">${intervals[2] || ''}</span>
-            </button>
-            <button class="ease-btn ease-easy" data-ease="4">
-                <span class="ease-label">Easy</span>
-                <span class="ease-interval">${intervals[3] || ''}</span>
-            </button>
-        </div>
-        <div class="lr-stats">
-            <span class="stat-item">${card.interval > 0 ? `Intervalle : ${card.interval}j` : `Type : ${card.type_label || ''}`}</span>
-            <span class="stat-item">${card.factor_percent > 0 ? `Ease : ${card.factor_percent.toFixed(0)}%` : ''}</span>
-            <span class="stat-item">${card.reps !== undefined ? `Révisions : ${card.reps}` : ''}</span>
-            <span class="stat-item">${card.lapses > 0 ? `Oublis : ${card.lapses}` : ''}</span>
-            <span class="stat-item">Min : <input type="number" class="min-interval-input" value="${minVal}" placeholder="—" min="1" style="width:40px">j</span>
+            <div class="ease-change-wrapper">
+                <button class="ease-btn ease-change" data-action="change">
+                    <span class="ease-label">Change</span>
+                    <span class="ease-interval change-preview">${currentInterval}j</span>
+                </button>
+                <div class="ease-change-editor" style="display:none">
+                    <button class="change-dec">−</button>
+                    <span class="change-value">${currentInterval}</span>
+                    <button class="change-inc">+</button>
+                    <button class="change-confirm">OK</button>
+                </div>
+            </div>
         </div>
     `;
 
@@ -314,23 +309,36 @@ function buildCurrentCardRow(card) {
         img.addEventListener('click', () => openLightbox(img.src));
     });
 
-    // Boutons ease
-    row.querySelectorAll('.ease-btn').forEach(btn => {
-        btn.addEventListener('click', () => submitAnswer(parseInt(btn.dataset.ease)));
+    // Boutons Failed / Maintain
+    easeCol.querySelector('.ease-failed').addEventListener('click', () => submitAnswer('failed'));
+    easeCol.querySelector('.ease-maintain').addEventListener('click', () => submitAnswer('maintain'));
+
+    // Bouton Change — affiche l'éditeur inline
+    const changeBtn = easeCol.querySelector('.ease-change');
+    const changeEditor = easeCol.querySelector('.ease-change-editor');
+    const changeValueEl = easeCol.querySelector('.change-value');
+    const changePreview = easeCol.querySelector('.change-preview');
+
+    changeBtn.addEventListener('click', () => {
+        changeBtn.style.display = 'none';
+        changeEditor.style.display = 'flex';
+        changeEditor.querySelector('.change-confirm').focus();
     });
 
-    // Min interval
-    row.querySelector('.min-interval-input').addEventListener('change', e => {
-        const v = parseInt(e.target.value);
-        const key = String(card.card_id);
-        const newVal = v > 0 ? v : null;
-        if (newVal) cardMinIntervals.set(key, newVal);
-        else cardMinIntervals.delete(key);
-        fetch('/set_card_info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ card_id: key, min_interval: newVal }),
-        });
+    easeCol.querySelector('.change-dec').addEventListener('click', () => {
+        const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
+        changeValueEl.textContent = v;
+        changePreview.textContent = `${v}j`;
+    });
+
+    easeCol.querySelector('.change-inc').addEventListener('click', () => {
+        const v = parseInt(changeValueEl.textContent) + 1;
+        changeValueEl.textContent = v;
+        changePreview.textContent = `${v}j`;
+    });
+
+    easeCol.querySelector('.change-confirm').addEventListener('click', () => {
+        submitAnswer('change', parseInt(changeValueEl.textContent));
     });
 
     return row;
@@ -412,16 +420,19 @@ function drawConnectors(container) {
 }
 
 
-async function submitAnswer(ease) {
+async function submitAnswer(action, interval) {
     if (!reviewerCard) return;
     const card = reviewerCard;
     reviewerCard = null;
+
+    const body = { card_id: card.card_id, action };
+    if (action === 'change' && interval !== undefined) body.interval = interval;
 
     try {
         await fetch('/review_card', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ card_id: card.card_id, ease }),
+            body: JSON.stringify(body),
         });
     } catch (err) {
         console.error('learn: submitAnswer failed', err);
@@ -443,11 +454,42 @@ async function submitAnswer(ease) {
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
-    if (!document.getElementById('learn-reviewer')) return;
-    if (e.key === '1') submitAnswer(1);
-    else if (e.key === '2') submitAnswer(2);
-    else if (e.key === '3') submitAnswer(3);
-    else if (e.key === '4') submitAnswer(4);
+    const reviewer = document.getElementById('learn-reviewer');
+    if (!reviewer) return;
+
+    const changeEditor = reviewer.querySelector('.ease-change-editor');
+    const changeBtn = reviewer.querySelector('.ease-change');
+    const changeValueEl = reviewer.querySelector('.change-value');
+    const changePreview = reviewer.querySelector('.change-preview');
+    const inChangeMode = changeEditor && changeEditor.style.display !== 'none';
+
+    if (inChangeMode) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitAnswer('change', parseInt(changeValueEl.textContent));
+        } else if (e.key === 'ArrowUp' || e.key === '+') {
+            e.preventDefault();
+            const v = parseInt(changeValueEl.textContent) + 1;
+            changeValueEl.textContent = v;
+            if (changePreview) changePreview.textContent = `${v}j`;
+        } else if (e.key === 'ArrowDown' || e.key === '-') {
+            e.preventDefault();
+            const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
+            changeValueEl.textContent = v;
+            if (changePreview) changePreview.textContent = `${v}j`;
+        }
+        return;
+    }
+
+    if (e.key === '1') submitAnswer('failed');
+    else if (e.key === '2') submitAnswer('maintain');
+    else if (e.key === '3') {
+        if (changeBtn && changeEditor) {
+            changeBtn.style.display = 'none';
+            changeEditor.style.display = 'flex';
+            changeEditor.querySelector('.change-confirm').focus();
+        }
+    }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

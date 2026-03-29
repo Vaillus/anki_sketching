@@ -17,39 +17,31 @@
 
                 <div id="reviewer-front"></div>
 
-                <div id="reviewer-show-answer-wrap">
-                    <button id="reviewer-show-answer">Voir la réponse</button>
-                </div>
+                <div id="reviewer-back"></div>
 
-                <div id="reviewer-back" class="hidden"></div>
-
-                <div id="reviewer-answer-buttons" class="hidden">
+                <div id="reviewer-answer-buttons">
                     <div id="reviewer-ease-buttons">
-                        <button class="ease-btn ease-again" data-ease="1">
-                            <span class="ease-label">Again</span>
-                            <span class="ease-interval" id="interval-again"></span>
+                        <button class="ease-btn ease-failed" data-action="failed">
+                            <span class="ease-label">Failed</span>
+                            <span class="ease-interval">1j</span>
                         </button>
-                        <button class="ease-btn ease-hard" data-ease="2">
-                            <span class="ease-label">Hard</span>
-                            <span class="ease-interval" id="interval-hard"></span>
+                        <button class="ease-btn ease-maintain" data-action="maintain">
+                            <span class="ease-label">Maintain</span>
+                            <span class="ease-interval" id="reviewer-maintain-interval"></span>
                         </button>
-                        <button class="ease-btn ease-good" data-ease="3">
-                            <span class="ease-label">Good</span>
-                            <span class="ease-interval" id="interval-good"></span>
-                        </button>
-                        <button class="ease-btn ease-easy" data-ease="4">
-                            <span class="ease-label">Easy</span>
-                            <span class="ease-interval" id="interval-easy"></span>
-                        </button>
+                        <div class="ease-change-wrapper">
+                            <button class="ease-btn ease-change" id="reviewer-change-btn" data-action="change">
+                                <span class="ease-label">Change</span>
+                                <span class="ease-interval change-preview" id="reviewer-change-preview"></span>
+                            </button>
+                            <div class="ease-change-editor" id="reviewer-change-editor" style="display:none">
+                                <button class="change-dec" id="reviewer-change-dec">−</button>
+                                <span class="change-value" id="reviewer-change-value"></span>
+                                <button class="change-inc" id="reviewer-change-inc">+</button>
+                                <button class="change-confirm" id="reviewer-change-confirm">OK</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <div id="reviewer-stats" class="hidden">
-                    <span class="stat-item" id="stat-interval"></span>
-                    <span class="stat-item" id="stat-factor"></span>
-                    <span class="stat-item" id="stat-reps"></span>
-                    <span class="stat-item" id="stat-lapses"></span>
-                    <span class="stat-item" id="stat-min-interval"></span>
                 </div>
             </div>
         `;
@@ -65,12 +57,38 @@
         // Fermeture bouton ✕
         document.getElementById('reviewer-close').addEventListener('click', closeModal);
 
-        // Voir la réponse
-        document.getElementById('reviewer-show-answer').addEventListener('click', revealAnswer);
+        // Bouton Failed
+        backdrop.querySelector('.ease-failed').addEventListener('click', () => submitAnswer('failed'));
 
-        // Boutons de réponse
-        backdrop.querySelectorAll('.ease-btn').forEach(btn => {
-            btn.addEventListener('click', () => submitAnswer(parseInt(btn.dataset.ease)));
+        // Bouton Maintain
+        backdrop.querySelector('.ease-maintain').addEventListener('click', () => submitAnswer('maintain'));
+
+        // Bouton Change — affiche l'éditeur inline
+        const changeBtn = document.getElementById('reviewer-change-btn');
+        const changeEditor = document.getElementById('reviewer-change-editor');
+        const changeValueEl = document.getElementById('reviewer-change-value');
+        const changePreview = document.getElementById('reviewer-change-preview');
+
+        changeBtn.addEventListener('click', () => {
+            changeBtn.style.display = 'none';
+            changeEditor.style.display = 'flex';
+            document.getElementById('reviewer-change-confirm').focus();
+        });
+
+        document.getElementById('reviewer-change-dec').addEventListener('click', () => {
+            const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
+            changeValueEl.textContent = v;
+            changePreview.textContent = `${v}j`;
+        });
+
+        document.getElementById('reviewer-change-inc').addEventListener('click', () => {
+            const v = parseInt(changeValueEl.textContent) + 1;
+            changeValueEl.textContent = v;
+            changePreview.textContent = `${v}j`;
+        });
+
+        document.getElementById('reviewer-change-confirm').addEventListener('click', () => {
+            submitAnswer('change', parseInt(changeValueEl.textContent));
         });
 
         return backdrop;
@@ -142,46 +160,17 @@
             ${backHtml}
         `;
 
-        // Intervalles next_reviews
-        const intervals = card.next_reviews || [];
-        ['again', 'hard', 'good', 'easy'].forEach((name, i) => {
-            const el = document.getElementById(`interval-${name}`);
-            if (el) el.textContent = intervals[i] || '';
-        });
+        // Intervalle courant pour les boutons Maintain et Change
+        const currentInterval = card.interval || 1;
+        document.getElementById('reviewer-maintain-interval').textContent = `${currentInterval}j`;
+        document.getElementById('reviewer-change-value').textContent = currentInterval;
+        document.getElementById('reviewer-change-preview').textContent = `${currentInterval}j`;
 
-        // Stats
-        const typeLabel = card.type_label || '';
-        document.getElementById('stat-interval').textContent =
-            card.interval > 0 ? `Intervalle : ${card.interval}j` : `Type : ${typeLabel}`;
-        document.getElementById('stat-factor').textContent =
-            card.factor_percent > 0 ? `Ease : ${card.factor_percent.toFixed(0)}%` : '';
-        document.getElementById('stat-reps').textContent =
-            card.reps !== undefined ? `Révisions : ${card.reps}` : '';
-        document.getElementById('stat-lapses').textContent =
-            card.lapses > 0 ? `Oublis : ${card.lapses}` : '';
-
-        // Champ min_interval (editable inline)
-        const minVal = cardMinIntervals.get(String(card.card_id)) || '';
-        document.getElementById('stat-min-interval').innerHTML =
-            `Min : <input type="number" id="min-interval-input" value="${minVal}" placeholder="—" min="1" style="width:40px">j`;
-        document.getElementById('min-interval-input').addEventListener('change', e => {
-            const v = parseInt(e.target.value);
-            const key = String(card.card_id);
-            const newVal = v > 0 ? v : null;
-            if (newVal) cardMinIntervals.set(key, newVal);
-            else cardMinIntervals.delete(key);
-            fetch('/set_card_info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card_id: key, min_interval: newVal })
-            });
-        });
-
-        // Reset état
-        document.getElementById('reviewer-back').classList.add('hidden');
-        document.getElementById('reviewer-answer-buttons').classList.add('hidden');
-        document.getElementById('reviewer-stats').classList.add('hidden');
-        document.getElementById('reviewer-show-answer-wrap').classList.remove('hidden');
+        // Reset éditeur Change
+        const changeBtn = document.getElementById('reviewer-change-btn');
+        const changeEditor = document.getElementById('reviewer-change-editor');
+        changeBtn.style.display = '';
+        changeEditor.style.display = 'none';
 
         modal.classList.add('visible');
     }
@@ -192,27 +181,23 @@
         currentCard = null;
     }
 
-    function revealAnswer() {
-        document.getElementById('reviewer-back').classList.remove('hidden');
-        document.getElementById('reviewer-answer-buttons').classList.remove('hidden');
-        document.getElementById('reviewer-stats').classList.remove('hidden');
-        document.getElementById('reviewer-show-answer-wrap').classList.add('hidden');
-    }
-
     // ── Submit answer ─────────────────────────────────────────────────────────
-    async function submitAnswer(ease) {
+    async function submitAnswer(action, interval) {
         if (!currentCard) return;
         const card = currentCard;
+
+        const body = { card_id: card.card_id, action };
+        if (action === 'change' && interval !== undefined) body.interval = interval;
 
         try {
             const res = await fetch('/review_card', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card_id: card.card_id, ease }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!data.success) {
-                console.error('reviewer: answerCards failed', data);
+                console.error('reviewer: review_card failed', data);
             }
         } catch (err) {
             console.error('reviewer: network error', err);
@@ -257,17 +242,38 @@
             return;
         }
 
-        const backHidden = document.getElementById('reviewer-back').classList.contains('hidden');
-        if (e.key === ' ' || e.key === 'Enter') {
-            if (backHidden) revealAnswer();
+        const changeEditor = document.getElementById('reviewer-change-editor');
+        const changeValueEl = document.getElementById('reviewer-change-value');
+        const changePreview = document.getElementById('reviewer-change-preview');
+        const inChangeMode = changeEditor && changeEditor.style.display !== 'none';
+
+        if (inChangeMode) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitAnswer('change', parseInt(changeValueEl.textContent));
+            } else if (e.key === 'ArrowUp' || e.key === '+') {
+                e.preventDefault();
+                const v = parseInt(changeValueEl.textContent) + 1;
+                changeValueEl.textContent = v;
+                if (changePreview) changePreview.textContent = `${v}j`;
+            } else if (e.key === 'ArrowDown' || e.key === '-') {
+                e.preventDefault();
+                const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
+                changeValueEl.textContent = v;
+                if (changePreview) changePreview.textContent = `${v}j`;
+            }
             return;
         }
 
-        if (!backHidden) {
-            if (e.key === '1') submitAnswer(1);
-            else if (e.key === '2') submitAnswer(2);
-            else if (e.key === '3') submitAnswer(3);
-            else if (e.key === '4') submitAnswer(4);
+        if (e.key === '1') submitAnswer('failed');
+        else if (e.key === '2') submitAnswer('maintain');
+        else if (e.key === '3') {
+            const changeBtn = document.getElementById('reviewer-change-btn');
+            if (changeBtn && changeEditor) {
+                changeBtn.style.display = 'none';
+                changeEditor.style.display = 'flex';
+                document.getElementById('reviewer-change-confirm').focus();
+            }
         }
     });
 
