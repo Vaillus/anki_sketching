@@ -59,10 +59,14 @@ canvasContainer.addEventListener('wheel', handleCanvasWheel, { passive: false })
 // Gestion du déplacement du canvas
 canvasContainer.addEventListener('mousedown', (e) => {
     if (e.target === canvasContainer || e.target === canvas) {
-        isDraggingCanvas = true;
-        canvasContainer.classList.add('dragging');
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
+        if (interactionMode === 'move') {
+            isDraggingCanvas = true;
+            canvasContainer.classList.add('dragging');
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        } else if (interactionMode === 'select') {
+            startMarquee(e);
+        }
         e.preventDefault();
     }
 });

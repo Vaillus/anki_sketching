@@ -174,6 +174,7 @@ document.addEventListener('click', (e) => {
     
     // Désélectionne tout si on clique sur le canvas (pas sur une carte)
     if (e.target === canvas || e.target === canvasContainer) {
+        if (marqueeJustEnded) return;
         deselectAllCards();
         deselectAllArrows();
     }
@@ -206,6 +207,20 @@ document.addEventListener('keydown', function(e) {
     if ((e.key === 'Delete' || e.key === 'Backspace') && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
         deleteSelectedArrows();
     }
+    // Toggle interaction mode with S key
+    if (e.key === 's' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+        interactionMode = interactionMode === 'move' ? 'select' : 'move';
+        const indicator = document.getElementById('mode-indicator');
+        if (interactionMode === 'select') {
+            indicator.textContent = 'Select';
+            indicator.classList.add('select');
+            canvasContainer.classList.add('select-mode');
+        } else {
+            indicator.textContent = 'Move';
+            indicator.classList.remove('select');
+            canvasContainer.classList.remove('select-mode');
+        }
+    }
     // Empêche les flèches de déplacer la page
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
         // Ne pas empêcher si on est dans un champ de saisie
@@ -225,6 +240,10 @@ document.addEventListener('gesturechange', function(e) {
 document.addEventListener('gestureend', function(e) {
     e.preventDefault();
 });
+
+// Marquee selection listeners
+document.addEventListener('mousemove', updateMarquee);
+document.addEventListener('mouseup', endMarquee);
 
 // Initialisation
 updateCanvasTransform();

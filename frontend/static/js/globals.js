@@ -31,6 +31,13 @@ const MIN_CARD_HEIGHT_PX = 120;
 // Variables globales pour la physique
 let isRepelling = false; // Flag pour éviter les conflits de répulsion
 
+// Variables pour le mode d'interaction (move / select)
+let interactionMode = 'move';   // 'move' | 'select'
+let isMarqueeActive = false;
+let marqueeStartX = 0;
+let marqueeStartY = 0;
+let marqueeJustEnded = false;
+
 // Sensibilité du pinch-to-zoom (plus petit = moins sensible)
 const PINCH_ZOOM_SENSITIVITY = 0.004;
 

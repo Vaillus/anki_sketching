@@ -1016,6 +1016,47 @@ body {
     background: #e74c3c !important;
 }
 
+/* ===== Mode indicator ===== */
+
+#mode-indicator {
+    position: fixed;
+    bottom: 155px;
+    right: 10px;
+    z-index: 10000;
+    background: #5a4aaa;
+    color: #f1eeff;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+
+#mode-indicator.select {
+    background: #27ae60;
+}
+
+/* ===== Marquee selection ===== */
+
+#marquee-rect {
+    display: none;
+    position: absolute;
+    border: 2px dashed #4CAF50;
+    background: rgba(76, 175, 80, 0.12);
+    pointer-events: none;
+    z-index: 9999;
+}
+
+#canvas-container.select-mode {
+    cursor: crosshair;
+}
+
+#canvas-container.select-mode.dragging {
+    cursor: crosshair;
+}
+
 .hidden {
     display: none !important;
 }
