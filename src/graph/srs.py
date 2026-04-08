@@ -117,30 +117,3 @@ def review_card(
     }
 
 
-def _format_interval(days: int) -> str:
-    """Formate un intervalle en jours pour l'affichage."""
-    if days < 30:
-        return f"{days}j"
-    if days < 365:
-        months = round(days / 30, 1)
-        return f"{months}mo" if months != int(months) else f"{int(months)}mo"
-    years = round(days / 365, 1)
-    return f"{years}a" if years != int(years) else f"{int(years)}a"
-
-
-def get_next_intervals(
-    card_type: int,
-    interval: int,
-    ease: float,
-    due_date: Optional[str] = None,
-) -> list[str]:
-    """Simule les 4 ratings et retourne les intervalles formatés pour l'UI.
-
-    Returns:
-        Liste de 4 strings [Again, Hard, Good, Easy]
-    """
-    results = []
-    for rating in (AGAIN, HARD, GOOD, EASY):
-        result = review_card(card_type, interval, ease, rating, due_date)
-        results.append(_format_interval(result["interval"]))
-    return results

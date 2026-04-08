@@ -18,7 +18,6 @@ from src.graph.cards_db import get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import get_config, set_config, migrate_db
 from src.graph.card_info import set_card_info, get_all_card_info
-from src.graph.srs import review_card as srs_review, get_next_intervals
 from src.graph.local_cards import (
     create_local_card,
     get_local_card,
@@ -399,18 +398,10 @@ async def get_due_cards():
     for row in rows:
         # row has 12 cols: 11 from _CARDS_COLS + ease2 (duplicate)
         base_row = row[:11]
-        card_type = base_row[1]
         due_date = base_row[3]
-        interval = base_row[5]
-        ease_factor = base_row[6]
 
         card_data = _card_from_db_row(base_row, images_dir)
-
-        next_reviews = get_next_intervals(
-            card_type, interval or 0, ease_factor or 2.5, due_date
-        )
         card_data["due_date"] = due_date
-        card_data["next_reviews"] = next_reviews
 
         cards_data.append(card_data)
 
@@ -419,36 +410,47 @@ async def get_due_cards():
 
 @router.post("/review_card")
 async def review_card_endpoint(request: Request):
-    """Soumet une réponse de révision via le moteur SM-2 local."""
+    """Soumet une réponse de révision (failed / maintain / change)."""
     data = await request.json()
     card_id = data.get("card_id")
-    rating = data.get("ease")  # 1=Again, 2=Hard, 3=Good, 4=Easy
+    action = data.get("action")  # "failed" | "maintain" | "change"
 
-    if card_id is None or rating is None:
-        return JSONResponse({"success": False, "error": "card_id et ease sont requis"}, status_code=400)
+    if card_id is None or action not in ("failed", "maintain", "change"):
+        return JSONResponse(
+            {"success": False, "error": "card_id et action (failed|maintain|change) sont requis"},
+            status_code=400,
+        )
 
     cards_conn = get_cards_db_conn()
     try:
         row = cards_conn.execute(
-            "SELECT card_type, interval, ease_factor, due_date, min_interval FROM cards WHERE card_id = ?",
+            "SELECT card_type, interval, ease_factor, min_interval FROM cards WHERE card_id = ?",
             (str(card_id),),
         ).fetchone()
         if not row:
             return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
 
-        card_type, interval, ease, due_date, min_ivl = row
-        result = srs_review(card_type, interval, ease or 2.5, int(rating), due_date)
+        _card_type, current_interval, ease, min_ivl = row
+        today = date.today()
+
+        if action == "failed":
+            new_interval = 1
+        elif action == "maintain":
+            new_interval = max(1, current_interval or 1)
+        else:  # change
+            new_interval = int(data.get("interval", current_interval or 1))
 
         # Applique l'intervalle minimum si défini
-        if min_ivl and result["interval"] < min_ivl:
-            result["interval"] = min_ivl
-            result["due_date"] = (date.today() + timedelta(days=min_ivl)).isoformat()
+        if min_ivl and new_interval < min_ivl:
+            new_interval = min_ivl
+
+        new_due = (today + timedelta(days=new_interval)).isoformat()
 
         cards_conn.execute(
             """UPDATE cards
-               SET card_type=?, queue=0, due_date=?, interval=?, ease_factor=?, locally_managed=1
+               SET card_type=2, queue=0, due_date=?, interval=?, locally_managed=1
                WHERE card_id=?""",
-            (result["card_type"], result["due_date"], result["interval"], result["ease"], str(card_id)),
+            (new_due, new_interval, str(card_id)),
         )
         cards_conn.commit()
 
