@@ -23,6 +23,8 @@ function buildLearnTagsHtml(tags) {
 let allDueCards = [];
 let selectedCardId = null;
 let reviewerCard = null;         // carte actuellement chargée dans le reviewer
+let includeTags = new Set();
+let excludeTags = new Set();
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
@@ -62,10 +64,9 @@ async function loadDueCards() {
         }
 
         allDueCards = data.cards;
-        const n = data.total;
-        countEl.textContent = `${n} carte${n > 1 ? 's' : ''}`;
+        updateFilteredCount();
 
-        if (n === 0) {
+        if (data.total === 0) {
             grid.innerHTML = '<div class="learn-state-message">Aucune carte à réviser</div>';
             return;
         }
@@ -77,11 +78,83 @@ async function loadDueCards() {
     }
 }
 
+// ── Tag filter ──────────────────────────────────────────────────────────────
+
+async function loadAllTagsLearn() {
+    try {
+        const res = await fetch('/all_tags');
+        const data = await res.json();
+        if (data.success) renderTagFilter(data.tags);
+    } catch (err) {
+        console.error('learn: failed to load tags', err);
+    }
+}
+
+function renderTagFilter(tags) {
+    const container = document.getElementById('tag-filter');
+    container.innerHTML = '';
+    if (!tags || tags.length === 0) return;
+
+    tags.forEach(tag => {
+        const pill = document.createElement('span');
+        pill.className = 'tag-pill';
+        pill.textContent = tag;
+        pill.addEventListener('click', () => cycleTagState(pill, tag));
+        container.appendChild(pill);
+    });
+}
+
+function cycleTagState(pill, tag) {
+    if (includeTags.has(tag)) {
+        // include → exclude
+        includeTags.delete(tag);
+        excludeTags.add(tag);
+        pill.className = 'tag-pill exclude';
+    } else if (excludeTags.has(tag)) {
+        // exclude → neutral
+        excludeTags.delete(tag);
+        pill.className = 'tag-pill';
+    } else {
+        // neutral → include
+        includeTags.add(tag);
+        pill.className = 'tag-pill include';
+    }
+    renderGrid();
+    updateFilteredCount();
+}
+
+function getFilteredCards() {
+    return allDueCards.filter(card => {
+        const cardTags = card.tags || [];
+        if (excludeTags.size > 0 && cardTags.some(t => excludeTags.has(t))) return false;
+        if (includeTags.size > 0 && !cardTags.some(t => includeTags.has(t))) return false;
+        return true;
+    });
+}
+
+function updateFilteredCount() {
+    const countEl = document.getElementById('learn-count');
+    const filtered = getFilteredCards();
+    const total = allDueCards.length;
+    if (filtered.length === total) {
+        countEl.textContent = `${total} carte${total > 1 ? 's' : ''}`;
+    } else {
+        countEl.textContent = `${filtered.length}/${total} carte${total > 1 ? 's' : ''}`;
+    }
+}
+
 function renderGrid() {
     const grid = document.getElementById('due-cards-grid');
     grid.innerHTML = '';
 
-    allDueCards.forEach(card => {
+    const cards = getFilteredCards();
+
+    if (allDueCards.length > 0 && cards.length === 0) {
+        grid.innerHTML = '<div class="learn-state-message">Aucune carte pour ces filtres</div>';
+        return;
+    }
+
+    cards.forEach(card => {
         const el = buildCardEl(card);
         el.addEventListener('click', () => selectCard(card.card_id));
         grid.appendChild(el);
@@ -515,6 +588,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadDueCards();
+    loadAllTagsLearn();
     document.getElementById('learn-refresh').addEventListener('click', loadDueCards);
 
     // Redraw connectors on resize

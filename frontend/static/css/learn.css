@@ -88,6 +88,57 @@ body {
     overflow: hidden;
 }
 
+/* ── Tag filter ── */
+
+#tag-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #3a2b86;
+}
+
+#tag-filter:empty {
+    display: none;
+}
+
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #3a2b86;
+    color: #c8c0f0;
+    white-space: nowrap;
+    line-height: 1.4;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tag-pill:hover {
+    filter: brightness(1.2);
+}
+
+.tag-pill.include {
+    background: #1a6b3a;
+    color: #b8f0c8;
+}
+
+.tag-pill.include::before {
+    content: "✓ ";
+}
+
+.tag-pill.exclude {
+    background: #6b1a1a;
+    color: #f0b8b8;
+}
+
+.tag-pill.exclude::before {
+    content: "✕ ";
+}
+
 #due-cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, 130px);
