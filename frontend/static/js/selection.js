@@ -1,13 +1,166 @@
 function updateSelectionDisplay() {
     const count = selectedCards.size;
     selectionCount.textContent = `${count} carte(s) sélectionnée(s)`;
-    
+
     if (count > 0) {
         selectionToolbar.style.display = 'block';
+        updateSelectionTags();
     } else {
         selectionToolbar.style.display = 'none';
     }
 }
+
+// ===== Selection tag management =====
+
+function updateSelectionTags() {
+    const ids = Array.from(selectedCards);
+    if (ids.length === 0) return;
+
+    fetch('/get_cards_by_ids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: ids }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const tagCounts = {};
+        const total = data.cards.length;
+        data.cards.forEach(card => {
+            (card.tags || []).forEach(tag => {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+        });
+
+        const listEl = document.getElementById('selection-tags-list');
+        listEl.innerHTML = '';
+        Object.keys(tagCounts).sort().forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'card-tag removable';
+            if (tagCounts[tag] < total) pill.classList.add('partial');
+            pill.innerHTML = `${escapeHtml(tag)} <span class="tag-remove">&times;</span>`;
+            pill.querySelector('.tag-remove').addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeTagFromSelected(tag);
+            });
+            listEl.appendChild(pill);
+        });
+    })
+    .catch(err => console.error('updateSelectionTags:', err));
+}
+
+function addTagToSelected(tag) {
+    const ids = Array.from(selectedCards);
+    fetch('/add_tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: ids, tag }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            refreshTagsOnCards(ids);
+            updateSelectionTags();
+            loadAllTags();
+        }
+    });
+}
+
+function removeTagFromSelected(tag) {
+    const ids = Array.from(selectedCards);
+    fetch('/remove_tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: ids, tag }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            refreshTagsOnCards(ids);
+            updateSelectionTags();
+            loadAllTags();
+        }
+    });
+}
+
+function refreshTagsOnCards(cardIds) {
+    fetch('/get_cards_by_ids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: cardIds }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        data.cards.forEach(card => {
+            const el = document.querySelector(`[data-card-id="${card.card_id}"]`);
+            if (!el) return;
+            const content = el.querySelector('.card-content');
+            if (!content) return;
+            // Remove existing tags div
+            const existing = content.querySelector('.card-tags');
+            if (existing) existing.remove();
+            // Add new tags
+            if (card.tags && card.tags.length > 0) {
+                content.insertAdjacentHTML('beforeend', buildTagsHTML(card.tags));
+            }
+        });
+    });
+}
+
+// ===== Selection tag input =====
+
+function initSelectionTagInput() {
+    const input = document.getElementById('tag-input');
+    const autocomplete = document.getElementById('tag-autocomplete');
+
+    // Prevent canvas/keyboard interference
+    ['mousedown', 'click', 'keydown'].forEach(evt => {
+        input.addEventListener(evt, (e) => e.stopPropagation());
+    });
+
+    input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        autocomplete.innerHTML = '';
+        if (!q) { autocomplete.style.display = 'none'; return; }
+        const matches = allTagsCache.filter(t =>
+            t.toLowerCase().includes(q)
+        ).slice(0, 8);
+        if (matches.length === 0) { autocomplete.style.display = 'none'; return; }
+        matches.forEach(tag => {
+            const item = document.createElement('div');
+            item.className = 'tag-autocomplete-item';
+            item.textContent = tag;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                addTagToSelected(tag);
+                input.value = '';
+                autocomplete.style.display = 'none';
+            });
+            autocomplete.appendChild(item);
+        });
+        autocomplete.style.display = 'block';
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => { autocomplete.style.display = 'none'; }, 150);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (val) {
+                addTagToSelected(val);
+                input.value = '';
+                autocomplete.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Initialize when DOM is ready
+initSelectionTagInput();
 
 function toggleCardSelection(cardElement, forceState = null) {
     const cardId = cardElement.getAttribute('data-card-id');

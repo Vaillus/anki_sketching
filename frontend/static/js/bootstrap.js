@@ -251,4 +251,5 @@ updateCanvasTransform();
 // Charge automatiquement toutes les cartes sauvegardées au chargement de la page
 window.addEventListener('load', () => {
     loadAllSavedCardsOnStartup();
+    loadAllTags();
 });

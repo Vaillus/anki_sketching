@@ -3,6 +3,21 @@
  * Dashboard d'apprentissage : grille de cartes dues + panneau de contexte.
  */
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function escapeHtmlLearn(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function buildLearnTagsHtml(tags) {
+    if (!tags || tags.length === 0) return '';
+    return '<div class="card-tags">' +
+        tags.map(t => `<span class="card-tag">${escapeHtmlLearn(t)}</span>`).join('') +
+        '</div>';
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 let allDueCards = [];
@@ -100,7 +115,9 @@ function buildCardEl(card) {
 
     const titleHtml = `<div class="learn-card-title${firstText ? '' : ' learn-card-empty'}">${firstText || '(sans texte)'}</div>`;
 
-    el.innerHTML = badgesHtml + imageHtml + titleHtml;
+    const tagsHtml = buildLearnTagsHtml(card.tags);
+
+    el.innerHTML = badgesHtml + imageHtml + titleHtml + tagsHtml;
     return el;
 }
 
@@ -221,6 +238,7 @@ function buildMiniCard(card) {
         <div class="context-mini-badge"><span class="card-type ${typeClass}">${card.type_label}</span></div>
         ${imageHtml}
         <div class="context-mini-title">${firstText || '(sans texte)'}</div>
+        ${buildLearnTagsHtml(card.tags)}
     `;
     return el;
 }
@@ -266,6 +284,7 @@ function buildCurrentCardRow(card) {
                 ${renderFields(remainingFields)}
             </div>` : ''}
         </div>
+        ${buildLearnTagsHtml(card.tags)}
     `;
 
     // Ease column

@@ -70,6 +70,68 @@
     let posX = 0, posY = 0;
     let uploadedFilename = null;
 
+    // Tag management in modal
+    let modalTags = [];
+    const modalTagsList = document.getElementById('local-card-tags-list');
+    const modalTagInput = document.getElementById('local-card-tag-input');
+    const modalTagAutocomplete = document.getElementById('local-card-tag-autocomplete');
+
+    function renderModalTags() {
+        modalTagsList.innerHTML = '';
+        modalTags.forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'card-tag removable';
+            pill.innerHTML = `${escapeHtml(tag)} <span class="tag-remove">&times;</span>`;
+            pill.querySelector('.tag-remove').addEventListener('click', () => {
+                modalTags = modalTags.filter(t => t !== tag);
+                renderModalTags();
+            });
+            modalTagsList.appendChild(pill);
+        });
+    }
+
+    function showModalTagAutocomplete(query) {
+        modalTagAutocomplete.innerHTML = '';
+        if (!query) { modalTagAutocomplete.style.display = 'none'; return; }
+        const matches = allTagsCache.filter(t =>
+            t.toLowerCase().includes(query.toLowerCase()) && !modalTags.includes(t)
+        ).slice(0, 8);
+        if (matches.length === 0) { modalTagAutocomplete.style.display = 'none'; return; }
+        matches.forEach(tag => {
+            const item = document.createElement('div');
+            item.className = 'tag-autocomplete-item';
+            item.textContent = tag;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                if (!modalTags.includes(tag)) {
+                    modalTags.push(tag);
+                    renderModalTags();
+                }
+                modalTagInput.value = '';
+                modalTagAutocomplete.style.display = 'none';
+            });
+            modalTagAutocomplete.appendChild(item);
+        });
+        modalTagAutocomplete.style.display = 'block';
+    }
+
+    modalTagInput.addEventListener('input', () => showModalTagAutocomplete(modalTagInput.value.trim()));
+    modalTagInput.addEventListener('blur', () => {
+        setTimeout(() => { modalTagAutocomplete.style.display = 'none'; }, 150);
+    });
+    modalTagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = modalTagInput.value.trim();
+            if (val && !modalTags.includes(val)) {
+                modalTags.push(val);
+                renderModalTags();
+            }
+            modalTagInput.value = '';
+            modalTagAutocomplete.style.display = 'none';
+        }
+    });
+
     function showImagePreview(src) {
         imagePreview.innerHTML = `<img src="${src}" style="max-width:100%;max-height:120px;border-radius:6px;">`;
         removeImageBtn.style.display = 'inline-block';
@@ -105,6 +167,9 @@
         posY = y || 0;
         clearImagePreview();
 
+        modalTags = [];
+        renderModalTags();
+
         if (editCardId) {
             modalTitle.textContent = 'Modifier la carte';
             submitBtn.textContent = 'Enregistrer';
@@ -124,6 +189,8 @@
                         if (c.images && c.images.length > 0) {
                             showImagePreview(c.images[0]);
                         }
+                        modalTags = c.tags ? [...c.tags] : [];
+                        renderModalTags();
                     }
                 });
         } else {
@@ -198,7 +265,7 @@
 
         if (editCardId) {
             // Update
-            const body = { card_id: editCardId, front_text: front, back_text: back };
+            const body = { card_id: editCardId, front_text: front, back_text: back, tags: modalTags };
             if (uploadedFilename) body.image_filename = uploadedFilename;
             const res = await fetch('/update_local_card', {
                 method: 'POST',
@@ -213,7 +280,7 @@
             }
         } else {
             // Create
-            const body = { front_text: front, back_text: back };
+            const body = { front_text: front, back_text: back, tags: modalTags };
             if (uploadedFilename) body.image_filename = uploadedFilename;
             const res = await fetch('/create_local_card', {
                 method: 'POST',
@@ -285,6 +352,7 @@
         (cardData.images || []).forEach(imgPath => {
             content += `<img src="${imgPath}" alt="Image de la carte">`;
         });
+        content += buildTagsHTML(cardData.tags);
         return `<div class="card-content">${content}</div>`;
     }
 

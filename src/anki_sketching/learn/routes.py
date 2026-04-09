@@ -23,12 +23,12 @@ templates = Jinja2Templates(directory=str(templates_dir))
 router = APIRouter()
 
 _COLS = ("card_id, card_type, queue, due_date, raw_due, interval, ease_factor,"
-         " texts_json, image_filenames_json, reps, lapses")
+         " texts_json, image_filenames_json, reps, lapses, tags_json")
 
 
 def _build_card(row: tuple, images_dir: Path) -> dict:
     (card_id, card_type, _queue, _due_date, _raw_due, _interval, _ease_factor,
-     texts_json, image_filenames_json, _reps, _lapses) = row
+     texts_json, image_filenames_json, _reps, _lapses, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}
     image_filenames = json.loads(image_filenames_json) if image_filenames_json else []
@@ -37,11 +37,13 @@ def _build_card(row: tuple, images_dir: Path) -> dict:
         for fn in image_filenames
         if (images_dir / fn).exists()
     ]
+    tags = json.loads(tags_json) if tags_json else []
     type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
     return {
         "card_id": card_id,
         "texts": texts,
         "images": images,
+        "tags": tags,
         "type": card_type,
         "type_label": type_labels.get(card_type, f"Unknown ({card_type})"),
     }

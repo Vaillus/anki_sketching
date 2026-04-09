@@ -84,6 +84,12 @@
             <input type="file" id="local-card-image" accept="image/*" style="display:none;">
             <div id="local-card-image-preview"></div>
             <button type="button" id="local-card-remove-image" style="display:none;">Retirer l'image</button>
+            <label>Tags</label>
+            <div id="local-card-tags-container">
+                <div id="local-card-tags-list"></div>
+                <input type="text" id="local-card-tag-input" placeholder="Ajouter un tag…" autocomplete="off">
+                <div id="local-card-tag-autocomplete"></div>
+            </div>
             <div class="local-card-actions">
                 <button id="local-card-submit">Créer</button>
                 <button id="local-card-cancel">Annuler</button>
@@ -107,6 +113,13 @@
         <span id="selection-count">0 carte(s) sélectionnée(s)</span>
         <button id="group-selected">🔗 Grouper</button>
         <button id="deselect-all">❌ Tout désélectionner</button>
+        <div id="selection-tags">
+            <div id="selection-tags-list"></div>
+            <div id="tag-input-wrapper">
+                <input type="text" id="tag-input" placeholder="Ajouter un tag…" autocomplete="off">
+                <div id="tag-autocomplete"></div>
+            </div>
+        </div>
     </div>
 
     <!-- JavaScript modules -->

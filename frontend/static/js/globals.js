@@ -44,6 +44,9 @@ const PINCH_ZOOM_SENSITIVITY = 0.004;
 // Overrides par carte (chargés depuis /card_info_all au démarrage)
 const cardMinIntervals = new Map();
 
+// Cache global des tags
+let allTagsCache = [];
+
 // Références aux éléments DOM
 const canvas = document.getElementById('canvas');
 const canvasContainer = document.getElementById('canvas-container');
@@ -53,3 +56,28 @@ const position = document.getElementById('position');
 const contextMenu = document.getElementById('context-menu');
 const selectionToolbar = document.getElementById('selection-toolbar');
 const selectionCount = document.getElementById('selection-count');
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function buildTagsHTML(tags) {
+    if (!tags || tags.length === 0) return '';
+    let html = '<div class="card-tags">';
+    tags.forEach(tag => {
+        html += `<span class="card-tag">${escapeHtml(tag)}</span>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+function loadAllTags() {
+    fetch('/all_tags')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) allTagsCache = data.tags;
+        })
+        .catch(err => console.error('all_tags: failed', err));
+}

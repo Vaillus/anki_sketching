@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS cards (
     locally_managed BOOLEAN NOT NULL DEFAULT 0,
     texts_json TEXT,
     image_filenames_json TEXT,
+    tags_json TEXT,
     reps INTEGER NOT NULL DEFAULT 0,
     lapses INTEGER NOT NULL DEFAULT 0,
     is_blocking BOOLEAN NOT NULL DEFAULT 0,
@@ -56,6 +57,7 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
         ("image_filename", "TEXT"),
         ("created_at", "TEXT"),
         ("topo_depth", "INTEGER NOT NULL DEFAULT 0"),
+        ("tags_json", "TEXT"),
     ]
     for col_name, col_def in add_migrations:
         if col_name not in existing:
@@ -193,3 +195,67 @@ def migrate_from_legacy() -> None:
         print("Legacy migration complete.")
     finally:
         cards_conn.close()
+
+
+def get_all_tags(conn: sqlite3.Connection | None = None) -> list[str]:
+    """Retourne tous les tags distincts utilisés par les cartes, triés."""
+    should_close = conn is None
+    if conn is None:
+        conn = get_cards_db_conn()
+    try:
+        rows = conn.execute("SELECT tags_json FROM cards WHERE tags_json IS NOT NULL").fetchall()
+        tags: set[str] = set()
+        for (tags_json,) in rows:
+            try:
+                for t in json.loads(tags_json):
+                    tags.add(t)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return sorted(tags)
+    finally:
+        if should_close:
+            conn.close()
+
+
+def add_tag(card_ids: list[str], tag: str) -> None:
+    """Ajoute un tag aux cartes spécifiées."""
+    conn = get_cards_db_conn()
+    try:
+        for card_id in card_ids:
+            row = conn.execute(
+                "SELECT tags_json FROM cards WHERE card_id = ?", (card_id,)
+            ).fetchone()
+            if row is None:
+                continue
+            tags = json.loads(row[0]) if row[0] else []
+            if tag not in tags:
+                tags.append(tag)
+                conn.execute(
+                    "UPDATE cards SET tags_json = ? WHERE card_id = ?",
+                    (json.dumps(tags), card_id),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def remove_tag(card_ids: list[str], tag: str) -> None:
+    """Retire un tag des cartes spécifiées."""
+    conn = get_cards_db_conn()
+    try:
+        for card_id in card_ids:
+            row = conn.execute(
+                "SELECT tags_json FROM cards WHERE card_id = ?", (card_id,)
+            ).fetchone()
+            if row is None:
+                continue
+            tags = json.loads(row[0]) if row[0] else []
+            if tag in tags:
+                tags.remove(tag)
+                conn.execute(
+                    "UPDATE cards SET tags_json = ? WHERE card_id = ?",
+                    (json.dumps(tags), card_id),
+                )
+        conn.commit()
+    finally:
+        conn.close()

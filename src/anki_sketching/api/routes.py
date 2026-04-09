@@ -24,6 +24,7 @@ from src.graph.local_cards import (
     update_local_card,
     delete_local_card,
 )
+from src.graph.cards_db import get_all_tags, add_tag, remove_tag
 
 
 # Crée le router
@@ -205,10 +206,10 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
     """Construit un dict carte depuis une row de la table cards.
 
     Row: (card_id, card_type, queue, due_date, raw_due, interval, ease_factor,
-          texts_json, image_filenames_json, reps, lapses)
+          texts_json, image_filenames_json, reps, lapses, tags_json)
     """
     (card_id, card_type, _queue, due_date, raw_due, interval, ease_factor,
-     texts_json, image_filenames_json, reps, lapses) = row
+     texts_json, image_filenames_json, reps, lapses, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}
     image_filenames = json.loads(image_filenames_json) if image_filenames_json else []
@@ -217,12 +218,14 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
         for fn in image_filenames
         if (images_dir / fn).exists()
     ]
+    tags = json.loads(tags_json) if tags_json else []
 
     type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
     return {
         "card_id": card_id,
         "texts": texts,
         "images": images,
+        "tags": tags,
         "type": card_type,
         "type_label": type_labels.get(card_type, f"Unknown ({card_type})"),
         "due": raw_due,
@@ -235,7 +238,7 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
 
 
 _CARDS_COLS = ("card_id, card_type, queue, due_date, raw_due, interval, ease_factor,"
-               " texts_json, image_filenames_json, reps, lapses")
+               " texts_json, image_filenames_json, reps, lapses, tags_json")
 
 
 @router.post("/get_cards_by_ids")
@@ -274,6 +277,7 @@ async def get_cards_by_ids(request: Request):
                         'card_id': card_id_str,
                         'texts': local["texts"],
                         'images': local_images,
+                        'tags': local.get("tags", []),
                         'type': 0,
                         'type_label': 'New',
                         'due': None,
@@ -347,6 +351,7 @@ async def import_deck(deck_name: str = Form(...)):
                 "card_id": card_id,
                 "texts": card.texts,
                 "images": [f'/static/images/{os.path.basename(img)}' for img in card.images],
+                "tags": [],
                 "type": card.type,
                 "type_label": card.type_label,
                 "due": card.due,
@@ -396,8 +401,8 @@ async def get_due_cards():
 
     cards_data = []
     for row in rows:
-        # row has 12 cols: 11 from _CARDS_COLS + ease2 (duplicate)
-        base_row = row[:11]
+        # row has 13 cols: 12 from _CARDS_COLS + ease2 (duplicate)
+        base_row = row[:12]
         due_date = base_row[3]
 
         card_data = _card_from_db_row(base_row, images_dir)
@@ -590,7 +595,8 @@ async def create_local_card_endpoint(request: Request):
     back_text = data.get("back_text", "")
     image_filename = data.get("image_filename")
 
-    card_id = create_local_card(front_text, back_text, image_filename)
+    tags = data.get("tags")
+    card_id = create_local_card(front_text, back_text, image_filename, tags=tags)
     local = get_local_card(card_id)
     if not local:
         return JSONResponse({"success": False, "error": "Erreur création carte"}, status_code=500)
@@ -617,6 +623,19 @@ async def update_local_card_endpoint(request: Request):
     ok = update_local_card(str(card_id), **kwargs)
     if not ok:
         return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
+
+    # Update tags if provided
+    if "tags" in data:
+        tags = data["tags"] or []
+        cards_conn = get_cards_db_conn()
+        try:
+            cards_conn.execute(
+                "UPDATE cards SET tags_json = ? WHERE card_id = ?",
+                (json.dumps(tags), str(card_id)),
+            )
+            cards_conn.commit()
+        finally:
+            cards_conn.close()
 
     local = get_local_card(str(card_id))
     if not local:
@@ -668,6 +687,7 @@ def _format_local_card(card_id: str, local: dict) -> dict:
         "card_id": card_id,
         "texts": local["texts"],
         "images": images,
+        "tags": local.get("tags", []),
         "type": 0,
         "type_label": "New",
         "due": None,
@@ -675,3 +695,46 @@ def _format_local_card(card_id: str, local: dict) -> dict:
         "interval": 0,
         "factor_percent": 250,
     }
+
+
+# ── Tags ──────────────────────────────────────────────────────────────────
+
+
+@router.get("/all_tags")
+async def all_tags_endpoint():
+    """Retourne tous les tags distincts."""
+    try:
+        tags = get_all_tags()
+        return JSONResponse({"success": True, "tags": tags})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@router.post("/add_tag")
+async def add_tag_endpoint(request: Request):
+    """Ajoute un tag à une liste de cartes."""
+    data = await request.json()
+    card_ids = data.get("card_ids", [])
+    tag = data.get("tag", "").strip()
+    if not card_ids or not tag:
+        return JSONResponse({"success": False, "error": "card_ids et tag requis"}, status_code=400)
+    try:
+        add_tag([str(cid) for cid in card_ids], tag)
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@router.post("/remove_tag")
+async def remove_tag_endpoint(request: Request):
+    """Retire un tag d'une liste de cartes."""
+    data = await request.json()
+    card_ids = data.get("card_ids", [])
+    tag = data.get("tag", "").strip()
+    if not card_ids or not tag:
+        return JSONResponse({"success": False, "error": "card_ids et tag requis"}, status_code=400)
+    try:
+        remove_tag([str(cid) for cid in card_ids], tag)
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)

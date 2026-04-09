@@ -88,6 +88,8 @@ function importDeck(deckName) {
                 content += `<img src="${imgPath}" alt="Image de la carte">`;
             });
 
+            content += buildTagsHTML(card.tags);
+
             cardBox.innerHTML = `<div class="card-content">${content}</div>`;
             canvas.appendChild(cardBox);
             cards.push(cardBox); // Ajoute la carte au tableau

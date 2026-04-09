@@ -581,3 +581,26 @@ body {
     padding: 24px 0;
     font-style: italic;
 }
+
+/* ===== Card tags ===== */
+
+.card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(90, 74, 170, 0.3);
+}
+
+.card-tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #3a2b86;
+    color: #c8c0f0;
+    white-space: nowrap;
+    line-height: 1.4;
+}
