@@ -211,6 +211,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .learn-card-image img {
@@ -420,11 +421,11 @@ body {
 
 .current-card-images {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    align-items: center;
+    justify-content: center;
     background: #1a1330;
     padding: 4px;
-    justify-content: center;
+    position: relative;
 }
 
 .context-current-card .reviewer-image {
@@ -594,6 +595,32 @@ body {
     overflow: visible;
 }
 
+/* ── Carousel nav arrows ── */
+
+.img-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.7);
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    z-index: 1;
+    line-height: 1;
+    transition: background 0.1s, color 0.1s;
+}
+
+.img-nav:hover {
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+}
+
+.img-nav-prev { left: 4px; }
+.img-nav-next { right: 4px; }
+
 /* ── Lightbox ── */
 
 #lightbox-backdrop {
@@ -615,12 +642,35 @@ body {
 }
 
 #lightbox-img {
-    max-width: 90vw;
+    max-width: 80vw;
     max-height: 90vh;
     object-fit: contain;
     border-radius: 8px;
     display: block;
 }
+
+#lightbox-prev,
+#lightbox-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 36px;
+    background: rgba(0, 0, 0, 0.4);
+    color: rgba(255, 255, 255, 0.8);
+    border: none;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 6px;
+    z-index: 1;
+    transition: background 0.15s;
+    line-height: 1;
+}
+
+#lightbox-prev:hover,
+#lightbox-next:hover { background: rgba(0, 0, 0, 0.7); }
+
+#lightbox-prev { left: 24px; }
+#lightbox-next { right: 24px; }
 
 /* ── Loading / empty states ── */
 

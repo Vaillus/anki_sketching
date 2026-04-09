@@ -28,20 +28,54 @@ let excludeTags = new Set();
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
+let lightboxImages = [];
+let lightboxIndex = 0;
+
 function ensureLightbox() {
     if (document.getElementById('lightbox-backdrop')) return;
     const backdrop = document.createElement('div');
     backdrop.id = 'lightbox-backdrop';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.id = 'lightbox-prev';
+    prevBtn.textContent = '‹';
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+        document.getElementById('lightbox-img').src = lightboxImages[lightboxIndex];
+    });
+
     const img = document.createElement('img');
     img.id = 'lightbox-img';
+    img.addEventListener('click', (e) => e.stopPropagation());
+
+    const nextBtn = document.createElement('button');
+    nextBtn.id = 'lightbox-next';
+    nextBtn.textContent = '›';
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+        document.getElementById('lightbox-img').src = lightboxImages[lightboxIndex];
+    });
+
+    backdrop.appendChild(prevBtn);
     backdrop.appendChild(img);
+    backdrop.appendChild(nextBtn);
     document.body.appendChild(backdrop);
     backdrop.addEventListener('click', () => backdrop.classList.remove('visible'));
 }
 
-function openLightbox(src) {
+function openLightbox(images, index = 0) {
     ensureLightbox();
-    document.getElementById('lightbox-img').src = src;
+    lightboxImages = Array.isArray(images) ? images : [images];
+    lightboxIndex = index;
+
+    document.getElementById('lightbox-img').src = lightboxImages[lightboxIndex];
+
+    const hasMultiple = lightboxImages.length > 1;
+    document.getElementById('lightbox-prev').style.display = hasMultiple ? '' : 'none';
+    document.getElementById('lightbox-next').style.display = hasMultiple ? '' : 'none';
+
     document.getElementById('lightbox-backdrop').classList.add('visible');
 }
 
@@ -182,15 +216,38 @@ function buildCardEl(card) {
         </div>
     `;
 
-    const imageHtml = (card.images && card.images.length > 0)
-        ? `<div class="learn-card-image"><img src="${card.images[0]}" alt="" loading="lazy"></div>`
-        : '';
-
     const titleHtml = `<div class="learn-card-title${firstText ? '' : ' learn-card-empty'}">${firstText || '(sans texte)'}</div>`;
 
     const tagsHtml = buildLearnTagsHtml(card.tags);
 
+    const images = card.images || [];
+    const navPrev = images.length > 1 ? `<button class="img-nav img-nav-prev">‹</button>` : '';
+    const navNext = images.length > 1 ? `<button class="img-nav img-nav-next">›</button>` : '';
+    const imageHtml = images.length > 0
+        ? `<div class="learn-card-image" data-img-index="0">${navPrev}<img src="${images[0]}" alt="" loading="lazy">${navNext}</div>`
+        : '';
+
     el.innerHTML = badgesHtml + imageHtml + titleHtml + tagsHtml;
+
+    if (images.length > 1) {
+        const imgContainer = el.querySelector('.learn-card-image');
+        const img = imgContainer.querySelector('img');
+        imgContainer.querySelector('.img-nav-prev').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(imgContainer.dataset.imgIndex);
+            const newIdx = (idx - 1 + images.length) % images.length;
+            imgContainer.dataset.imgIndex = newIdx;
+            img.src = images[newIdx];
+        });
+        imgContainer.querySelector('.img-nav-next').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(imgContainer.dataset.imgIndex);
+            const newIdx = (idx + 1) % images.length;
+            imgContainer.dataset.imgIndex = newIdx;
+            img.src = images[newIdx];
+        });
+    }
+
     return el;
 }
 
@@ -333,10 +390,6 @@ function buildCurrentCardRow(card) {
         `<div class="reviewer-field"><div class="reviewer-field-name">${name}</div><div class="reviewer-field-value">${text}</div></div>`
     ).join('');
 
-    const imagesHtml = (card.images && card.images.length > 0)
-        ? card.images.map(src => `<img src="${src}" class="reviewer-image" alt="">`).join('')
-        : '';
-
     const typeClass = (card.type_label || 'new').toLowerCase();
     const currentInterval = card.interval || 1;
 
@@ -346,7 +399,6 @@ function buildCurrentCardRow(card) {
 
     cardEl.innerHTML = `
         <div class="context-mini-badge"><span class="card-type ${typeClass}">${card.type_label}</span></div>
-        ${imagesHtml ? `<div class="current-card-images">${imagesHtml}</div>` : ''}
         <div class="current-card-fields">
             <div class="reviewer-section-label">Recto</div>
             ${renderFields(firstField) || '<div class="reviewer-field-value">(sans texte)</div>'}
@@ -359,6 +411,53 @@ function buildCurrentCardRow(card) {
         </div>
         ${buildLearnTagsHtml(card.tags)}
     `;
+
+    // Build image carousel and insert after badge
+    const images = card.images || [];
+    if (images.length > 0) {
+        const imageSection = document.createElement('div');
+        imageSection.className = 'current-card-images';
+        imageSection.dataset.imgIndex = '0';
+
+        const reviewerImg = document.createElement('img');
+        reviewerImg.src = images[0];
+        reviewerImg.className = 'reviewer-image';
+        reviewerImg.alt = '';
+        reviewerImg.addEventListener('click', () => {
+            openLightbox(images, parseInt(imageSection.dataset.imgIndex));
+        });
+
+        if (images.length > 1) {
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'img-nav img-nav-prev';
+            prevBtn.textContent = '‹';
+            prevBtn.addEventListener('click', () => {
+                const idx = parseInt(imageSection.dataset.imgIndex);
+                const newIdx = (idx - 1 + images.length) % images.length;
+                imageSection.dataset.imgIndex = newIdx;
+                reviewerImg.src = images[newIdx];
+            });
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'img-nav img-nav-next';
+            nextBtn.textContent = '›';
+            nextBtn.addEventListener('click', () => {
+                const idx = parseInt(imageSection.dataset.imgIndex);
+                const newIdx = (idx + 1) % images.length;
+                imageSection.dataset.imgIndex = newIdx;
+                reviewerImg.src = images[newIdx];
+            });
+
+            imageSection.appendChild(prevBtn);
+            imageSection.appendChild(reviewerImg);
+            imageSection.appendChild(nextBtn);
+        } else {
+            imageSection.appendChild(reviewerImg);
+        }
+
+        const badge = cardEl.querySelector('.context-mini-badge');
+        badge.after(imageSection);
+    }
 
     // Ease column
     const easeCol = document.createElement('div');
@@ -395,11 +494,6 @@ function buildCurrentCardRow(card) {
     row.appendChild(spacer);
     row.appendChild(cardEl);
     row.appendChild(easeCol);
-
-    // Images zoomables
-    row.querySelectorAll('.reviewer-image').forEach(img => {
-        img.addEventListener('click', () => openLightbox(img.src));
-    });
 
     // Boutons Failed / Maintain
     easeCol.querySelector('.ease-failed').addEventListener('click', () => submitAnswer('failed'));
