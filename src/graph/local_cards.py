@@ -77,7 +77,7 @@ def update_local_card(
     card_id: str,
     front_text: str | None = None,
     back_text: str | None = None,
-    image_filename: str | None = ...,  # type: ignore[assignment]
+    image_filenames: list[str] | None = None,
 ) -> bool:
     """Met à jour les champs fournis. Retourne True si la carte existait."""
     conn = get_cards_db_conn()
@@ -97,8 +97,8 @@ def update_local_card(
             texts["Front"] = front_text
         if back_text is not None:
             texts["Back"] = back_text
-        if image_filename is not ...:
-            images = [image_filename] if image_filename else []
+        if image_filenames is not None:
+            images = image_filenames
 
         conn.execute(
             "UPDATE cards SET texts_json = ?, image_filenames_json = ? WHERE card_id = ?",

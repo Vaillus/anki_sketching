@@ -40,17 +40,14 @@
     editMenuItem.addEventListener('click', () => {
         const cardId = contextMenu.targetCard?.getAttribute('data-card-id');
         hideContextMenu();
-        if (cardId && cardId.startsWith('local_')) {
-            openLocalCardModal(null, null, cardId);
-        }
+        if (cardId) openLocalCardModal(null, null, cardId);
     });
 
-    // Show/hide "Modifier" depending on whether card is local
+    // Always show "Modifier"
     const origShowContextMenu = window.showContextMenu || showContextMenu;
     window.showContextMenu = function (x, y, targetCard) {
         origShowContextMenu(x, y, targetCard);
-        const cardId = targetCard.getAttribute('data-card-id');
-        editMenuItem.style.display = (cardId && cardId.startsWith('local_')) ? 'block' : 'none';
+        editMenuItem.style.display = 'block';
     };
 
     // ── Modal de création / édition ──────────────────────────────────────
@@ -61,14 +58,20 @@
     const imageInput = document.getElementById('local-card-image');
     const pasteZone = document.getElementById('local-card-paste-zone');
     const imagePreview = document.getElementById('local-card-image-preview');
-    const removeImageBtn = document.getElementById('local-card-remove-image');
     const submitBtn = document.getElementById('local-card-submit');
     const cancelBtn = document.getElementById('local-card-cancel');
     const deleteBtn = document.getElementById('local-card-delete');
 
     let editCardId = null;
+    let editCardIsLocal = false;
     let posX = 0, posY = 0;
+    let existingImageFilenames = [];
     let uploadedFilename = null;
+
+    const imageSection = document.querySelector('#local-card-panel label[for-section="image"]') ||
+        pasteZone?.closest('div') || null;
+    const imageSectionLabel = Array.from(document.querySelectorAll('#local-card-panel label'))
+        .find(l => l.textContent.trim() === 'Image (optionnelle)') || null;
 
     // Tag management in modal
     let modalTags = [];
@@ -132,18 +135,32 @@
         }
     });
 
-    function showImagePreview(src) {
-        imagePreview.innerHTML = `<img src="${src}" style="max-width:100%;max-height:120px;border-radius:6px;">`;
-        removeImageBtn.style.display = 'inline-block';
-        pasteZone.classList.add('has-image');
-    }
-
-    function clearImagePreview() {
+    function renderImagePreviews() {
         imagePreview.innerHTML = '';
-        uploadedFilename = null;
-        removeImageBtn.style.display = 'none';
-        pasteZone.classList.remove('has-image');
-        imageInput.value = '';
+        existingImageFilenames.forEach(fn => {
+            const w = document.createElement('div');
+            w.className = 'image-preview-item';
+            w.innerHTML = `<img src="/static/images/${fn}" style="max-width:100%;max-height:120px;border-radius:6px;">
+                <button type="button" class="remove-img-btn" title="Supprimer">&times;</button>`;
+            w.querySelector('.remove-img-btn').addEventListener('click', () => {
+                existingImageFilenames = existingImageFilenames.filter(f => f !== fn);
+                renderImagePreviews();
+            });
+            imagePreview.appendChild(w);
+        });
+        if (uploadedFilename) {
+            const fn = uploadedFilename;
+            const w = document.createElement('div');
+            w.className = 'image-preview-item';
+            w.innerHTML = `<img src="/static/images/${fn}" style="max-width:100%;max-height:120px;border-radius:6px;">
+                <button type="button" class="remove-img-btn" title="Annuler">&times;</button>`;
+            w.querySelector('.remove-img-btn').addEventListener('click', () => {
+                uploadedFilename = null;
+                renderImagePreviews();
+            });
+            imagePreview.appendChild(w);
+        }
+        pasteZone.classList.toggle('has-image', existingImageFilenames.length > 0 || !!uploadedFilename);
     }
 
     async function uploadFile(file) {
@@ -154,18 +171,28 @@
             const data = await res.json();
             if (data.success) {
                 uploadedFilename = data.filename;
-                showImagePreview(data.path);
+                renderImagePreviews();
             }
         } catch (err) {
             console.error('upload_image failed', err);
         }
     }
 
+    function setImageSectionVisible(visible) {
+        const display = visible ? '' : 'none';
+        if (imageSectionLabel) imageSectionLabel.style.display = display;
+        pasteZone.style.display = display;
+    }
+
     function openLocalCardModal(x, y, cardIdToEdit) {
         editCardId = cardIdToEdit || null;
+        editCardIsLocal = !editCardId || editCardId.startsWith('local_');
         posX = x || 0;
         posY = y || 0;
-        clearImagePreview();
+        existingImageFilenames = [];
+        uploadedFilename = null;
+        renderImagePreviews();
+        imageInput.value = '';
 
         modalTags = [];
         renderModalTags();
@@ -173,7 +200,7 @@
         if (editCardId) {
             modalTitle.textContent = 'Modifier la carte';
             submitBtn.textContent = 'Enregistrer';
-            deleteBtn.style.display = 'inline-block';
+            deleteBtn.style.display = editCardIsLocal ? 'inline-block' : 'none';
             // Fetch existing content
             fetch('/get_cards_by_ids', {
                 method: 'POST',
@@ -186,9 +213,8 @@
                         const c = data.cards[0];
                         frontInput.value = c.texts['Front'] || '';
                         backInput.value = c.texts['Back'] || '';
-                        if (c.images && c.images.length > 0) {
-                            showImagePreview(c.images[0]);
-                        }
+                        existingImageFilenames = c.image_filenames || [];
+                        renderImagePreviews();
                         modalTags = c.tags ? [...c.tags] : [];
                         renderModalTags();
                     }
@@ -214,9 +240,6 @@
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeLocalCardModal();
     });
-
-    // Remove image button
-    removeImageBtn.addEventListener('click', clearImagePreview);
 
     // Click paste zone → open file picker as fallback
     pasteZone.addEventListener('click', () => imageInput.click());
@@ -266,8 +289,13 @@
         if (editCardId) {
             // Update
             const body = { card_id: editCardId, front_text: front, back_text: back, tags: modalTags };
-            if (uploadedFilename) body.image_filename = uploadedFilename;
-            const res = await fetch('/update_local_card', {
+            const endpoint = editCardIsLocal ? '/update_local_card' : '/update_card';
+            const finalFilenames = [...existingImageFilenames];
+            if (uploadedFilename && !finalFilenames.includes(uploadedFilename)) {
+                finalFilenames.push(uploadedFilename);
+            }
+            body.image_filenames = finalFilenames;
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -281,7 +309,7 @@
         } else {
             // Create
             const body = { front_text: front, back_text: back, tags: modalTags };
-            if (uploadedFilename) body.image_filename = uploadedFilename;
+            if (uploadedFilename) body.image_filename = uploadedFilename;  // create_local_card still uses single filename
             const res = await fetch('/create_local_card', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

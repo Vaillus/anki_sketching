@@ -225,6 +225,7 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
         "card_id": card_id,
         "texts": texts,
         "images": images,
+        "image_filenames": image_filenames,
         "tags": tags,
         "type": card_type,
         "type_label": type_labels.get(card_type, f"Unknown ({card_type})"),
@@ -604,6 +605,59 @@ async def create_local_card_endpoint(request: Request):
     return JSONResponse({"success": True, "card": card_data})
 
 
+@router.post("/update_card")
+async def update_card_endpoint(request: Request):
+    """Met à jour le texte et les tags d'une carte (locale ou Anki) dans cards.db."""
+    data = await request.json()
+    card_id = data.get("card_id")
+    if card_id is None:
+        return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
+
+    images_dir = get_images_dir()
+    cards_conn = get_cards_db_conn()
+    try:
+        row = cards_conn.execute(
+            f"SELECT {_CARDS_COLS} FROM cards WHERE card_id = ?",
+            (str(card_id),),
+        ).fetchone()
+        if not row:
+            return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
+
+        card_data = _card_from_db_row(row, images_dir)
+        texts = dict(card_data["texts"])
+
+        if "front_text" in data:
+            texts["Front"] = data["front_text"]
+        if "back_text" in data:
+            texts["Back"] = data["back_text"]
+
+        tags = data["tags"] if "tags" in data else card_data["tags"]
+
+        image_filenames_new = data.get("image_filenames")
+        if image_filenames_new is not None:
+            cards_conn.execute(
+                "UPDATE cards SET texts_json = ?, tags_json = ?, image_filenames_json = ? WHERE card_id = ?",
+                (json.dumps(texts), json.dumps(tags), json.dumps(image_filenames_new), str(card_id)),
+            )
+        else:
+            cards_conn.execute(
+                "UPDATE cards SET texts_json = ?, tags_json = ? WHERE card_id = ?",
+                (json.dumps(texts), json.dumps(tags), str(card_id)),
+            )
+        cards_conn.commit()
+
+        # Re-fetch pour retourner les données à jour
+        row = cards_conn.execute(
+            f"SELECT {_CARDS_COLS} FROM cards WHERE card_id = ?",
+            (str(card_id),),
+        ).fetchone()
+        updated = _card_from_db_row(row, images_dir)
+    finally:
+        cards_conn.close()
+
+    return JSONResponse({"success": True, "card": updated})
+
+
 @router.post("/update_local_card")
 async def update_local_card_endpoint(request: Request):
     """Met à jour le contenu d'une carte locale."""
@@ -617,8 +671,8 @@ async def update_local_card_endpoint(request: Request):
         kwargs["front_text"] = data["front_text"]
     if "back_text" in data:
         kwargs["back_text"] = data["back_text"]
-    if "image_filename" in data:
-        kwargs["image_filename"] = data["image_filename"]
+    if "image_filenames" in data:
+        kwargs["image_filenames"] = data["image_filenames"]
 
     ok = update_local_card(str(card_id), **kwargs)
     if not ok:

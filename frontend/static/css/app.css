@@ -962,18 +962,30 @@ body {
     min-height: 0;
 }
 
-#local-card-remove-image {
-    background: none;
-    border: 1px solid #3a2b86;
-    color: #ef9a9a;
-    border-radius: 4px;
-    padding: 4px 10px;
-    font-size: 11px;
+.image-preview-item {
+    position: relative;
+    display: inline-block;
+    margin: 4px;
+}
+
+.image-preview-item .remove-img-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 13px;
     cursor: pointer;
 }
 
-#local-card-remove-image:hover {
-    background: rgba(192, 57, 43, 0.2);
+.image-preview-item .remove-img-btn:hover {
+    background: rgba(192,57,43,0.85);
 }
 
 .local-card-actions {
