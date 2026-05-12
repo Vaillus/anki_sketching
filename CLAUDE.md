@@ -14,7 +14,7 @@ A web-based spatial organization tool for Anki flashcards. Cards are displayed o
 # Run the app (uses uv)
 bash run.sh
 # Or directly:
-uv run uvicorn src.anki_sketching.main:app --reload --port 5000
+uv run uvicorn src.anki_sketching.main:app --reload --host 0.0.0.0 --port 5050
 
 # Rebuild the dependency graph (requires Anki running)
 uv run python build_graph.py
@@ -23,7 +23,7 @@ uv run python build_graph.py
 uv run python check_card_due.py [card_id]
 ```
 
-The app is available at `http://localhost:5000`. There are no automated tests.
+The app is available at `http://localhost:5050`. There are no automated tests.
 
 ## Git
 
