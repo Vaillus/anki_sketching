@@ -4,47 +4,49 @@
 
 ## What the app is
 
-A local single-user web app that sits next to Anki. It does three things:
+A personal drawing-practice tool, served as a local web app. It does two things:
 
-1. **Mirrors a subset of an Anki collection** (decks under `dessin::`) into its own database, so the canvas can render and reason about cards without hitting Anki on every interaction.
-2. **Lets the user lay out cards spatially and connect them with arrows** to encode prerequisite relationships ("learn A before B").
-3. **Schedules and surfaces reviews** based on that graph: a card is hidden from review when an ancestor is still unlearned.
+1. **Authors a skill tree** — exercises as nodes, prerequisite relationships as arrows. See [canvas.md](./canvas.md).
+2. **Surfaces exercises for practice** based on its own scheduler, only showing exercises whose prerequisites are learned. See [review.md](./review.md).
 
-It is not a replacement for Anki — Anki still owns the card content, the note types, and (until a card is imported) the SRS state. This app owns the layout, the graph, the tags, and from the moment a card is first reviewed in `/learn`, its scheduling state too (the `locally_managed` flag flips to `1`).
+The app owns exercise content, the graph, and scheduling. Anki integration is optional and one-way: an AnkiConnect-based importer can seed exercises from an Anki deck, after which Anki is out of the loop. The review logic is fully independent of Anki's SRS. See [anki-sync.md](./anki-sync.md).
 
-## Two pages, one model
+## Editor and practice
 
-- **`/` Build** — the canvas. Edit the graph: position cards, draw arrows, group, tag, create local cards. See [canvas.md](./canvas.md).
-- **`/learn` Learn** — the review dashboard. Pick a due card, see its parents/children, answer it. See [review.md](./review.md).
+Two surfaces, one backing store:
+
+- **`/` (Build)** — the editor canvas. Position exercises, draw prerequisite arrows, group, tag, create new exercises. See [canvas.md](./canvas.md).
+- **`/learn` (Learn)** — the practice dashboard. Pick a due exercise, see its parents/children, answer it. See [review.md](./review.md).
 
 Both pages read from the same backing store (`cards.db` + `graph.db` + `card_positions.json`). Any change on one side is reflected on the other after a reload (or a `loadDueCards()` refresh).
+
+(The `Build` / `Learn` page labels are leftovers from an earlier Anki-focused framing — their actual roles are "editor" and "practice".)
 
 ## Architecture
 
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│   Anki Desktop      │         │   collection.anki2  │
-│   + AnkiConnect     │◄────────┤   (read-only, CRT)  │
-│   localhost:8765    │         └─────────────────────┘
-└──────────┬──────────┘                  ▲
-           │ HTTP/JSON                   │ direct sqlite read
-           │                             │ (one-shot, cached)
-┌──────────▼─────────────────────────────┴──────────────┐
-│  FastAPI app (src/anki_sketching/main.py, port 5050)  │
-│                                                       │
-│   web/routes.py   — serves /            (index.html)  │
-│   learn/routes.py — serves /learn       (learn.html)  │
-│   api/routes.py   — JSON endpoints                    │
-└────────┬──────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│   data/                                                 │
-│     cards.db          — one row per card                │
-│     graph.db          — edges + config (CRT cache)      │
-│     card_positions.json — canvas layout (source of      │
-│                           truth for the graph structure)│
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  FastAPI app (src/anki_sketching/main.py, port 5050)        │
+│                                                             │
+│   web/routes.py   → serves /        (Build / editor)        │
+│   learn/routes.py → serves /learn   (Learn / practice)      │
+│   api/routes.py   → JSON endpoints                          │
+│                                                             │
+│   ─── optional ────────────────────────────────────         │
+│   anki_interface/ → AnkiConnect at localhost:8765           │
+│                  → direct read of collection.anki2 (CRT)    │
+│   Only used by POST /import_deck and the Build page's       │
+│   deck-list dropdown.                                       │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│   data/                                                     │
+│     cards.db            — one row per exercise              │
+│     graph.db            — edges + config (CRT cache)        │
+│     card_positions.json — canvas layout (source of truth    │
+│                           for the graph structure)          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 The frontend is **vanilla JS** loaded as `<script>` tags from `frontend/templates/index.html` and `learn.html`. No bundler, no framework.
@@ -89,14 +91,14 @@ User clicks ease button → POST /review_card
 | `anki_sketching/web/routes.py` | Serves `/` (Build page). Fetches deck list from Anki. |
 | `anki_sketching/learn/routes.py` | Serves `/learn` and `/learn/card/{id}/context` |
 | `anki_sketching/api/routes.py` | JSON endpoints (save, import, due, review, local cards, tags, …) |
-| `anki_interface/` | All AnkiConnect calls + direct sqlite read of `collection.anki2` for the CRT. See [anki-sync.md](./anki-sync.md). |
+| `anki_interface/` | **Optional integration.** All AnkiConnect calls + direct sqlite read of `collection.anki2` for the CRT. Only used by `/import_deck` and the Build page's deck dropdown. See [anki-sync.md](./anki-sync.md). |
 | `graph/cards_db.py` | `cards` table schema, opens connections, runs migrations |
 | `graph/schema.py` | `graph.db` schema (`edges` + `config`) |
 | `graph/parse_graph.py` | `card_positions.json` → `graph.db.edges` (groups expanded into edges) |
 | `graph/blocking.py` | `is_blocking` / `is_blocked` computation + `topo_depth` |
 | `graph/local_cards.py` | CRUD for cards with `local_*` IDs |
 | `graph/card_info.py` | `min_interval` getter/setter (per-card scheduling override) |
-| `graph/srs.py` | SM-2 scheduler (ported from anki-sm-2, AGPL). **Currently unused** — see [review.md](./review.md#open-questions). |
+| `graph/srs.py` | SM-2 scheduler (ported from anki-sm-2, AGPL). The conceptual basis for the app's scheduling. The current `/review_card` endpoint uses a simplified Failed/Maintain/Change shape that doesn't call into this module directly — see [review.md](./review.md). |
 | `utilities/paths.py` | Project paths (data dir, images dir, positions file) |
 
 ### Frontend (`frontend/static/js/`)
@@ -111,24 +113,15 @@ Two app surfaces. All Build modules are loaded as `<script>` tags from `index.ht
 
 | Term | Meaning |
 |------|---------|
-| **Card** | The unit displayed on the canvas. Either an Anki card (numeric ID like `1721160391157`) or a local card (`local_<hex>`). See [cards.md](./cards.md). |
+| **Card** | The central object — an exercise on the canvas. ID is either `local_<hex>` (created in the editor) or numeric (imported from Anki). The codebase uses "card" throughout for historical reasons; the user-facing concept is "exercise". See [cards.md](./cards.md). |
 | **Group** | A visual cluster of cards (dashed border) that can act as a single endpoint for an arrow. Groups are *not* nodes in the dependency graph: when an arrow attaches to a group, it's expanded into one edge per member at parse time. See [graph.md](./graph.md#groups). |
 | **Arrow** | A directed connection between two endpoints (card or group) drawn on the canvas. Each endpoint has an anchor (`top` / `bottom` / `left` / `right`) for visual routing only — the anchor has no semantic meaning. |
 | **Edge** | A `(parent_card_id, child_card_id)` row in `graph.db`. Always card-to-card after group expansion. |
-| **Blocking** | A card is *blocking* if it's due/new/learning/relearning and not suspended. It prevents review of its descendants. See [graph.md](./graph.md#blocking). |
+| **Blocking** | A card is *blocking* if it's due (or new/learning/relearning) and not suspended. It prevents review of its descendants. See [graph.md](./graph.md#blocking). |
 | **Blocked** | A card has at least one *blocking* ancestor. Hidden from `/due_cards`. |
-| **CRT** | Anki's *collection creation time* (Unix timestamp). Needed to compute real dates for review cards (`type=2`). See [anki-sync.md](./anki-sync.md#crt). |
-| **Local card** | A card created in this app, not in Anki. ID prefix `local_`. Always `card_type=0`, `locally_managed=1`. See [cards.md](./cards.md#local-cards). |
-| **`locally_managed`** | Flag on `cards.db.cards`. When `1`, scheduling decisions in this app are authoritative; we no longer trust Anki's state for that card. Flips to `1` on first `/review_card`, `/reschedule_card`, or `/reschedule_distant_cards`. |
+| **`locally_managed`** | Flag on `cards.db.cards`. When `1`, this app is authoritative for the card's scheduling. Always `1` for cards created in the editor. Flips to `1` on first `/review_card`, `/reschedule_card`, or `/reschedule_distant_cards` for Anki-imported cards (after which Anki's scheduling state for that card drifts). |
 | **`topo_depth`** | Longest path from any root (a node with no parents) to this card, computed in `compute_topo_depths()`. Drives the order in which due cards are surfaced. |
-
-## How to use the specs
-
-Each spec is **self-contained for its concept** and **cross-references the others** with relative links.
-
-- **Building a new feature?** Find the concept it touches most, read that spec, follow links to adjacent ones, then edit the relevant spec(s) before writing code.
-- **Adding a brand-new concept?** Add a new file `specs/<concept>.md` and link it from this overview.
-- **Each spec should answer**: what is this concept, what state does it own, what behaviors are defined on it, what does the UI look like (if applicable), what's the backend/frontend surface, and what's still open.
+| **CRT** | Anki's *collection creation time* (Unix timestamp). Only relevant during Anki import — needed to translate Anki's `due` field for review cards into real dates. See [anki-sync.md](./anki-sync.md#crt). |
 
 ## What this overview deliberately doesn't cover
 
