@@ -1,14 +1,14 @@
 # Review
 
-> Two review surfaces: the Learn page (`/learn`) and the reviewer modal on the Build page. Both share the scheduling rules.
+> Two review surfaces: the practice page (`/practice`) and the reviewer modal on the editor page. Both share the scheduling rules.
 
 ## Purpose
 
-When a user wants to do a review session, they go to **`/learn`**. It shows the cards that are *actually reviewable right now* — due today, **and not blocked by an unlearned prerequisite** ([graph.md](./graph.md#blocking)).
+When a user wants to do a review session, they go to **`/practice`**. It shows the cards that are *actually reviewable right now* — due today, **and not blocked by an unlearned prerequisite** ([graph.md](./graph.md#blocking)).
 
-For each card, the Learn page also shows its immediate parents and children, so the user reviews the card *in context*. This is the main reason this app exists rather than using Anki directly.
+For each card, the practice page also shows its immediate parents and children, so the user reviews the card *in context*. This is the main reason this app exists rather than using Anki directly.
 
-The Build page also has a smaller **reviewer modal**: clicking a chip in the bottom "À réviser" bar opens it. Same scheduling rules, smaller surface.
+The editor page also has a smaller **reviewer modal**: clicking a chip in the bottom "À réviser" bar opens it. Same scheduling rules, smaller surface.
 
 ## Scheduling model
 
@@ -40,15 +40,15 @@ The ease factor, `reps`, and `lapses` columns exist in the schema but are **not 
 
 There is also a separate SM-2 implementation at `src/graph/srs.py` (ported from `anki-sm-2`, AGPL) that **is not currently wired up**. It's preserved as a possible future scheduler.
 
-## The Learn page
+## The practice page
 
-Template: `frontend/templates/learn.html`. JS: `frontend/static/js/learn/main.js` (single self-contained module). Styles: `frontend/static/css/learn.css`.
+Template: `frontend/templates/practice.html`. JS: `frontend/static/js/practice/main.js` (single self-contained module). Styles: `frontend/static/css/practice.css`.
 
 ### Layout
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  [← Build]  Learn   N cartes   [↺ Refresh]                     │ learn-header
+│  [← Editor]  Practice   N cartes   [↺ Refresh]                 │ practice-header
 ├──────────────────┬─────────────────────────────────────────────┤
 │  Tag filter      │                                             │
 │  [tag1] [tag2] … │   Parents (M)                               │
@@ -64,12 +64,12 @@ Template: `frontend/templates/learn.html`. JS: `frontend/static/js/learn/main.js
 │                  │   Children (K)                              │
 │                  │   [child card] [child card] …               │
 └──────────────────┴─────────────────────────────────────────────┘
-   learn-left            learn-right (context panel)
+   practice-left         practice-right (context panel)
 ```
 
 ### Left column: the grid
 
-`#due-cards-grid` — a flex grid of `learn-card` tiles, one per due card. Each tile shows: type badge, due-relative label, first text field (truncated), tags, and image (carousel if multiple).
+`#due-cards-grid` — a flex grid of `practice-card` tiles, one per due card. Each tile shows: type badge, due-relative label, first text field (truncated), tags, and image (carousel if multiple).
 
 Fetched by `loadDueCards()` → `GET /due_cards`. The cards arrive **pre-ordered** by `topo_depth ASC, status, due_date ASC` (see [Due cards query](#due-cards-query)) — the frontend renders them in the order received.
 
@@ -88,11 +88,11 @@ A bar of pill toggles, one per distinct tag, with a tri-state cycle on click:
 Logic:
 - A card passes if: (no include tags configured OR card has ≥1 include tag) AND (card has no exclude tags).
 - Filtering is **client-side** (the full list is in `allDueCards`; `getFilteredCards()` is the predicate).
-- The `learn-count` updates to show `filtered / total` when a filter is active.
+- The `practice-count` updates to show `filtered / total` when a filter is active.
 
 ### Right column: the context panel
 
-When a card is selected, `loadContext(cardId)` calls `GET /learn/card/{id}/context`. The endpoint returns:
+When a card is selected, `loadContext(cardId)` calls `GET /practice/card/{id}/context`. The endpoint returns:
 
 ```json
 {
@@ -133,7 +133,7 @@ The ease column displays three buttons:
 
 Clicking **Failed** or **Maintain** submits immediately. Clicking **Change** reveals the editor; **Enter** or **OK** submits with the chosen interval.
 
-### Keyboard shortcuts (Learn)
+### Keyboard shortcuts (Practice)
 
 | Key | Effect |
 |-----|--------|
@@ -153,18 +153,18 @@ After `POST /review_card`:
 
 The card's tile disappears from the grid (because the next-due-date is now in the future), and any newly-unblocked descendants appear (because `compute_blocking_states` was called server-side).
 
-## The reviewer modal (Build page)
+## The reviewer modal (editor page)
 
-`frontend/static/js/reviewer.js`. Same ease buttons, same keyboard shortcuts, same `/review_card` endpoint as the Learn page. Differences:
+`frontend/static/js/reviewer.js`. Same ease buttons, same keyboard shortcuts, same `/review_card` endpoint as the practice page. Differences:
 
-| Aspect | Reviewer modal | Learn page |
-|--------|----------------|------------|
+| Aspect | Reviewer modal | Practice page |
+|--------|----------------|---------------|
 | Surface | Modal overlay (`#reviewer-backdrop`) | Full page |
 | Context (parents/children) | **None** | Shown around the card |
 | Trigger | Click a chip in the bottom `#due-cards-bar` | Click a card in the grid |
 | After answer | Closes modal, refreshes the chip's due display + the due-cards bar | Stays open, refreshes the grid |
 
-The modal also re-runs `applyBlockingHighlights()` on the Build canvas after a successful answer.
+The modal also re-runs `applyBlockingHighlights()` on the editor canvas after a successful answer.
 
 ## Due cards query
 
@@ -221,16 +221,16 @@ Use case: "no matter what I answer, don't show me this card again for at least N
 ## What this spec does not cover
 
 - The reviewer modal UI structure in detail — see the source of `reviewer.js` for now.
-- How the due-cards bar on the Build page is rendered → [canvas.md](./canvas.md#layout) (the bar itself).
+- How the due-cards bar on the editor page is rendered → [canvas.md](./canvas.md#layout) (the bar itself).
 - How blocking gates the queue → [graph.md](./graph.md#blocking).
 - Tag filtering details → [tags.md](./tags.md).
 
 ## Open questions
 
-- **No "show answer" step.** Both the modal and the Learn page show front + back simultaneously. Worth adding a reveal step for genuine self-testing.
+- **No "show answer" step.** Both the modal and the practice page show front + back simultaneously. Worth adding a reveal step for genuine self-testing.
 - **SM-2 module is dead code.** `src/graph/srs.py` is fully implemented (Again/Hard/Good/Easy with ease-factor updates and fuzz) but never imported. Decide whether to wire it up or remove it.
 - **Ease factor / reps / lapses never update.** They drift from reality once a card becomes `locally_managed`.
 - **No batch review.** Cards are reviewed one at a time. There's no "session" notion (count, progress, time spent).
 - **No "skip" or "snooze".** The only way out of a card is to answer it.
-- **Reviewer modal duplicates Learn ease-button logic.** Refactor candidate: extract the ease-controls UI into a shared component.
-- **Learn page does not refresh blocking highlights on the canvas** when navigated away (but the canvas reloads from scratch on navigation anyway).
+- **Reviewer modal duplicates practice ease-button logic.** Refactor candidate: extract the ease-controls UI into a shared component.
+- **Practice page does not refresh blocking highlights on the canvas** when navigated away (but the canvas reloads from scratch on navigation anyway).

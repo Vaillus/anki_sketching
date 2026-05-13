@@ -1,20 +1,20 @@
 /**
- * learn/main.js
- * Dashboard d'apprentissage : grille de cartes dues + panneau de contexte.
+ * practice/main.js
+ * Dashboard de practice : grille de cartes dues + panneau de contexte.
  */
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function escapeHtmlLearn(str) {
+function escapeHtmlPractice(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
 }
 
-function buildLearnTagsHtml(tags) {
+function buildPracticeTagsHtml(tags) {
     if (!tags || tags.length === 0) return '';
     return '<div class="card-tags">' +
-        tags.map(t => `<span class="card-tag">${escapeHtmlLearn(t)}</span>`).join('') +
+        tags.map(t => `<span class="card-tag">${escapeHtmlPractice(t)}</span>`).join('') +
         '</div>';
 }
 
@@ -83,9 +83,9 @@ function openLightbox(images, index = 0) {
 
 async function loadDueCards() {
     const grid = document.getElementById('due-cards-grid');
-    const countEl = document.getElementById('learn-count');
+    const countEl = document.getElementById('practice-count');
 
-    grid.innerHTML = '<div class="learn-state-message">Chargement…</div>';
+    grid.innerHTML = '<div class="practice-state-message">Chargement…</div>';
     countEl.textContent = '';
 
     try {
@@ -93,7 +93,7 @@ async function loadDueCards() {
         const data = await res.json();
 
         if (!data.success) {
-            grid.innerHTML = '<div class="learn-state-message">Erreur de chargement</div>';
+            grid.innerHTML = '<div class="practice-state-message">Erreur de chargement</div>';
             return;
         }
 
@@ -101,26 +101,26 @@ async function loadDueCards() {
         updateFilteredCount();
 
         if (data.total === 0) {
-            grid.innerHTML = '<div class="learn-state-message">Aucune carte à réviser</div>';
+            grid.innerHTML = '<div class="practice-state-message">Aucune carte à réviser</div>';
             return;
         }
 
         renderGrid();
     } catch (err) {
-        console.error('learn: failed to load due cards', err);
-        grid.innerHTML = '<div class="learn-state-message">Erreur réseau</div>';
+        console.error('practice: failed to load due cards', err);
+        grid.innerHTML = '<div class="practice-state-message">Erreur réseau</div>';
     }
 }
 
 // ── Tag filter ──────────────────────────────────────────────────────────────
 
-async function loadAllTagsLearn() {
+async function loadAllTagsPractice() {
     try {
         const res = await fetch('/all_tags');
         const data = await res.json();
         if (data.success) renderTagFilter(data.tags);
     } catch (err) {
-        console.error('learn: failed to load tags', err);
+        console.error('practice: failed to load tags', err);
     }
 }
 
@@ -167,7 +167,7 @@ function getFilteredCards() {
 }
 
 function updateFilteredCount() {
-    const countEl = document.getElementById('learn-count');
+    const countEl = document.getElementById('practice-count');
     const filtered = getFilteredCards();
     const total = allDueCards.length;
     if (filtered.length === total) {
@@ -184,7 +184,7 @@ function renderGrid() {
     const cards = getFilteredCards();
 
     if (allDueCards.length > 0 && cards.length === 0) {
-        grid.innerHTML = '<div class="learn-state-message">Aucune carte pour ces filtres</div>';
+        grid.innerHTML = '<div class="practice-state-message">Aucune carte pour ces filtres</div>';
         return;
     }
 
@@ -203,34 +203,34 @@ function renderGrid() {
 
 function buildCardEl(card) {
     const el = document.createElement('div');
-    el.className = 'learn-card';
+    el.className = 'practice-card';
     el.dataset.cardId = card.card_id;
 
     const typeClass = (card.type_label || 'new').toLowerCase();
     const firstText = Object.values(card.texts || {})[0] || '';
 
     const badgesHtml = `
-        <div class="learn-card-badges">
+        <div class="practice-card-badges">
             <span class="card-type ${typeClass}">${card.type_label}</span>
-            <span class="learn-card-due">${card.due_display}</span>
+            <span class="practice-card-due">${card.due_display}</span>
         </div>
     `;
 
-    const titleHtml = `<div class="learn-card-title${firstText ? '' : ' learn-card-empty'}">${firstText || '(sans texte)'}</div>`;
+    const titleHtml = `<div class="practice-card-title${firstText ? '' : ' practice-card-empty'}">${firstText || '(sans texte)'}</div>`;
 
-    const tagsHtml = buildLearnTagsHtml(card.tags);
+    const tagsHtml = buildPracticeTagsHtml(card.tags);
 
     const images = card.images || [];
     const navPrev = images.length > 1 ? `<button class="img-nav img-nav-prev">‹</button>` : '';
     const navNext = images.length > 1 ? `<button class="img-nav img-nav-next">›</button>` : '';
     const imageHtml = images.length > 0
-        ? `<div class="learn-card-image" data-img-index="0">${navPrev}<img src="${images[0]}" alt="" loading="lazy">${navNext}</div>`
+        ? `<div class="practice-card-image" data-img-index="0">${navPrev}<img src="${images[0]}" alt="" loading="lazy">${navNext}</div>`
         : '';
 
     el.innerHTML = badgesHtml + imageHtml + titleHtml + tagsHtml;
 
     if (images.length > 1) {
-        const imgContainer = el.querySelector('.learn-card-image');
+        const imgContainer = el.querySelector('.practice-card-image');
         const img = imgContainer.querySelector('img');
         imgContainer.querySelector('.img-nav-prev').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -269,11 +269,11 @@ function selectCard(cardId) {
 }
 
 async function loadContext(cardId) {
-    const right = document.getElementById('learn-right');
+    const right = document.getElementById('practice-right');
     right.innerHTML = '<div class="context-loading">Chargement…</div>';
 
     try {
-        const res = await fetch(`/learn/card/${cardId}/context`);
+        const res = await fetch(`/practice/card/${cardId}/context`);
         const data = await res.json();
 
         if (!data.success) {
@@ -283,13 +283,13 @@ async function loadContext(cardId) {
 
         renderContextPanel(data.card, data.parents, data.children);
     } catch (err) {
-        console.error('learn: context fetch failed', err);
+        console.error('practice: context fetch failed', err);
         right.innerHTML = '<div class="context-empty">Erreur réseau</div>';
     }
 }
 
 function renderContextPanel(card, parents, children) {
-    const right = document.getElementById('learn-right');
+    const right = document.getElementById('practice-right');
     right.innerHTML = '';
 
     // Remove old SVG overlay if any
@@ -368,7 +368,7 @@ function buildMiniCard(card) {
         <div class="context-mini-badge"><span class="card-type ${typeClass}">${card.type_label}</span></div>
         ${imageHtml}
         <div class="context-mini-title">${firstText || '(sans texte)'}</div>
-        ${buildLearnTagsHtml(card.tags)}
+        ${buildPracticeTagsHtml(card.tags)}
     `;
     return el;
 }
@@ -379,7 +379,7 @@ function buildCurrentCardRow(card) {
     reviewerCard = card;
 
     const row = document.createElement('div');
-    row.id = 'learn-reviewer';
+    row.id = 'practice-reviewer';
     row.className = 'current-card-row';
 
     const allFields = Object.entries(card.texts || {});
@@ -409,7 +409,7 @@ function buildCurrentCardRow(card) {
                 ${renderFields(remainingFields)}
             </div>` : ''}
         </div>
-        ${buildLearnTagsHtml(card.tags)}
+        ${buildPracticeTagsHtml(card.tags)}
     `;
 
     // Build image carousel and insert after badge
@@ -621,7 +621,7 @@ async function submitAnswer(action, interval) {
             body: JSON.stringify(body),
         });
     } catch (err) {
-        console.error('learn: submitAnswer failed', err);
+        console.error('practice: submitAnswer failed', err);
     }
 
     await loadDueCards();
@@ -632,7 +632,7 @@ async function submitAnswer(action, interval) {
         loadContext(card.card_id);
     } else {
         selectedCardId = null;
-        const right = document.getElementById('learn-right');
+        const right = document.getElementById('practice-right');
         right.innerHTML = 'Sélectionne une carte';
     }
 }
@@ -640,7 +640,7 @@ async function submitAnswer(action, interval) {
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
-    const reviewer = document.getElementById('learn-reviewer');
+    const reviewer = document.getElementById('practice-reviewer');
     if (!reviewer) return;
 
     const changeEditor = reviewer.querySelector('.ease-change-editor');
@@ -682,12 +682,12 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadDueCards();
-    loadAllTagsLearn();
-    document.getElementById('learn-refresh').addEventListener('click', loadDueCards);
+    loadAllTagsPractice();
+    document.getElementById('practice-refresh').addEventListener('click', loadDueCards);
 
     // Redraw connectors on resize
     window.addEventListener('resize', () => {
-        const right = document.getElementById('learn-right');
+        const right = document.getElementById('practice-right');
         if (right.querySelector('.context-current-card')) {
             drawConnectors(right);
         }

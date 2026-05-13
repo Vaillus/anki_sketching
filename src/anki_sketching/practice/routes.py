@@ -1,5 +1,5 @@
 """
-Routes pour le dashboard d'apprentissage (/learn).
+Routes pour le dashboard de practice (/practice).
 """
 import json
 import sqlite3
@@ -49,12 +49,12 @@ def _build_card(row: tuple, images_dir: Path) -> dict:
     }
 
 
-@router.get("/learn")
-async def learn(request: Request):
-    return templates.TemplateResponse("learn.html", {"request": request})
+@router.get("/practice")
+async def practice(request: Request):
+    return templates.TemplateResponse("practice.html", {"request": request})
 
 
-@router.get("/learn/card/{card_id}/context")
+@router.get("/practice/card/{card_id}/context")
 async def card_context(card_id: str):
     """Retourne la carte et ses parents/enfants immédiats."""
     try:

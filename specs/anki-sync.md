@@ -35,13 +35,13 @@ Frontend behavior:
 - `.connected` / `.disconnected` class on `#anki-status` (dot color).
 - Label text updates ("Anki connecté" / "Anki non connecté — lancez Anki avec AnkiConnect").
 - Import button is disabled when disconnected.
-- **On the false → true transition, the page reloads.** This is so the deck dropdown (rendered server-side in `web/routes.py`) picks up the now-available deck list.
+- **On the false → true transition, the page reloads.** This is so the deck dropdown (rendered server-side in `editor/routes.py`) picks up the now-available deck list.
 
 ## Deck listing
 
 `src/anki_interface/get_all_decks.py::get_all_decks()` calls `anki_request('deckNames')` and returns the list (or `None` on failure).
 
-The Build page (`web/routes.py::index`) filters this list to only decks under the parent `dessin::`:
+The editor page (`editor/routes.py::index`) filters this list to only decks under the parent `dessin::`:
 
 ```python
 dessin_decks = [
@@ -50,7 +50,7 @@ dessin_decks = [
 ]
 ```
 
-This is **hardcoded**. Changing it requires editing `web/routes.py`.
+This is **hardcoded**. Changing it requires editing `editor/routes.py`.
 
 The dropdown shows the filtered list, sorted alphabetically.
 

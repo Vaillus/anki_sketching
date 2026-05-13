@@ -166,12 +166,12 @@ Blocking alone (without re-parsing edges) is recomputed on `/review_card`, `/res
 | `GET /load_positions` | Returns the parsed JSON. |
 | `GET /blocking_cards` | Returns `{card_ids: [...]}` of cards that are `is_blocking=1 AND is_blocked=0 AND queue>=0` — the ones to highlight on the canvas. |
 | `GET /due_cards` | Returns unblocked due cards, ordered by `topo_depth` then due-date. See [review.md](./review.md#due-cards-query). |
-| `GET /learn/card/{id}/context` | Returns the card plus its immediate parents and children (one-hop only). Used by the Learn page right panel. |
+| `GET /practice/card/{id}/context` | Returns the card plus its immediate parents and children (one-hop only). Used by the practice page's right panel. |
 
 ## What this spec does not cover
 
 - How the user draws arrows and groups on the canvas → [canvas.md](./canvas.md#arrows-and-groups).
-- How blocking surfaces in the Build view (highlight) and Learn view (filter) → those pages' specs.
+- How blocking surfaces in the editor view (highlight) and practice view (filter) → those pages' specs.
 - What changes `card_type`/`due_date` → [review.md](./review.md#scheduling-update) and [anki-sync.md](./anki-sync.md#import).
 
 ## Open questions

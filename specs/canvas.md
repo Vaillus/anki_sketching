@@ -1,10 +1,10 @@
-# Canvas (Build page)
+# Canvas (Editor page)
 
-> The `/` page: infinite canvas for laying out cards, drawing arrows, building the graph.
+> The `/editor` page: infinite canvas for laying out cards, drawing arrows, building the graph.
 
 ## Purpose
 
-The Build page is where the user **authors the graph**. It's not for reviewing cards (that's [review.md](./review.md)) — it's for arranging cards spatially, drawing prerequisite arrows, grouping related cards, and creating local cards to fill gaps.
+The editor is where the user **authors the graph**. It's not for reviewing cards (that's [review.md](./review.md)) — it's for arranging cards spatially, drawing prerequisite arrows, grouping related cards, and creating local cards to fill gaps.
 
 The canvas state is auto-saved (positions, groups, arrows, pan/zoom) and is the source of truth for the graph structure ([graph.md](./graph.md#json-shape)).
 
@@ -12,7 +12,7 @@ The canvas state is auto-saved (positions, groups, arrows, pan/zoom) and is the 
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  [Learn →]  Build                              [Anki: ●]     │ build-header
+│  [Practice →]  Editor                          [Anki: ●]     │ editor-header
 ├──────────────────────────────────────────────────────────────┤
 │  Deck dropdown ▾  [Import]                                   │ toolbar
 │  [💾 Save]  [🗑 Clear]  [📅 Désapprendre lointaines]          │
@@ -61,7 +61,7 @@ All loaded as `<script>` tags from `index.html`, in this order (order matters �
 | `bootstrap.js` | Event listeners: form submit, toolbar buttons, context menu items, keyboard shortcuts. Triggers `loadAllSavedCardsOnStartup()` on `window.load`. |
 | `due_cards.js` | Fetches `/due_cards`, renders chips in the bottom bar, clicks open the reviewer modal. |
 | `anki_status.js` | Polls `/anki_status` every 5s, updates the status indicator, **reloads the page** when Anki transitions from disconnected → connected (so the deck dropdown refills). |
-| `reviewer.js` | Modal review on the Build page itself (not the Learn page). Same ease buttons as Learn. See [review.md](./review.md#reviewer-modal). |
+| `reviewer.js` | Modal review on the editor page itself (not the practice page). Same ease buttons as practice. See [review.md](./review.md#reviewer-modal). |
 
 State lives in module-global `let`/`Map`/`Set` declarations in `globals.js` and selected modules. No framework, no reactivity — DOM is mutated directly.
 

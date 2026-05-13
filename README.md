@@ -4,8 +4,8 @@ A personal tool for building a **drawing-practice routine**: exercises are organ
 
 > Status: personal project, single user, runs locally. Name is a leftover from when this was an Anki front-end — Anki is now an optional import source.
 
-<!-- screenshot of editor (Build page) -->
-<!-- screenshot of practice session (Learn page) -->
+<!-- screenshot of editor (/editor) -->
+<!-- screenshot of practice session (/practice) -->
 
 ## Why this exists
 
@@ -32,7 +32,7 @@ That's it for the core app. Anki integration is optional — see below.
 ## Run
 
 ```bash
-bash run.sh
+bash start.sh
 # or:
 uv run uvicorn src.anki_sketching.main:app --reload --host 0.0.0.0 --port 5050
 ```
@@ -53,7 +53,7 @@ See [`specs/cards.md`](specs/cards.md) and [`specs/graph.md`](specs/graph.md) fo
 The app started life as an Anki front-end, and a working AnkiConnect importer is still in the codebase. If you have an Anki deck of exercises you want to seed the editor with:
 
 - Install the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) plugin (code `2055492159`) and have Anki Desktop running.
-- The import dropdown filters for decks under a parent named `dessin::` — change `src/anki_sketching/web/routes.py` to match your naming.
+- The import dropdown filters for decks under a parent named `dessin::` — change `src/anki_sketching/editor/routes.py` to match your naming.
 
 Imported cards become regular exercises in the editor. Their scheduling drifts from Anki after the first review here, since this app doesn't sync back.
 

@@ -107,7 +107,7 @@ For **local cards**, `texts_json` is normalized to `{"Front": …, "Back": …}`
 
 A JSON list of basenames (e.g. `["Pasted image 20240701.png"]`). The actual files are served from `/static/images/<filename>`. The frontend constructs URLs by prepending `/static/images/` and filters out files that don't physically exist (handles the gitignored-image case gracefully).
 
-Multiple images per card is supported. The reviewer and learn-page card display them as a carousel.
+Multiple images per card is supported. The reviewer and practice-page card display them as a carousel.
 
 For **local cards**, the upload endpoint (`POST /upload_image`) generates a filename `local_<uuid8><ext>` so they sort apart from Anki images and can be tracked in git.
 

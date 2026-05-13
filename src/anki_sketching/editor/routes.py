@@ -1,8 +1,8 @@
 """
-Routes web pour Anki Sketching.
-Gère les routes qui servent des templates HTML.
+Routes pour la page éditeur (/editor) et la redirection / → /editor.
 """
 from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
@@ -23,14 +23,19 @@ router = APIRouter()
 
 
 @router.get("/")
+async def root():
+    return RedirectResponse(url="/editor")
+
+
+@router.get("/editor")
 async def index(request: Request):
-    """Route principale qui affiche l'interface."""
+    """Affiche le canvas éditeur."""
     all_decks = get_all_decks()
     dessin_decks = []
     if all_decks:
         parent_deck = 'dessin'
         dessin_decks = [
-            deck for deck in all_decks 
+            deck for deck in all_decks
             if deck == parent_deck or deck.startswith(f"{parent_deck}::")
         ]
     return templates.TemplateResponse("index.html", {

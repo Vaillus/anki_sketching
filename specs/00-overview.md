@@ -15,12 +15,10 @@ The app owns exercise content, the graph, and scheduling. Anki integration is op
 
 Two surfaces, one backing store:
 
-- **`/` (Build)** — the editor canvas. Position exercises, draw prerequisite arrows, group, tag, create new exercises. See [canvas.md](./canvas.md).
-- **`/learn` (Learn)** — the practice dashboard. Pick a due exercise, see its parents/children, answer it. See [review.md](./review.md).
+- **`/editor`** — the editor canvas. Position exercises, draw prerequisite arrows, group, tag, create new exercises. See [canvas.md](./canvas.md). (`/` redirects here.)
+- **`/practice`** — the practice dashboard. Pick a due exercise, see its parents/children, answer it. See [review.md](./review.md).
 
 Both pages read from the same backing store (`cards.db` + `graph.db` + `card_positions.json`). Any change on one side is reflected on the other after a reload (or a `loadDueCards()` refresh).
-
-(The `Build` / `Learn` page labels are leftovers from an earlier Anki-focused framing — their actual roles are "editor" and "practice".)
 
 ## Architecture
 
@@ -28,14 +26,14 @@ Both pages read from the same backing store (`cards.db` + `graph.db` + `card_pos
 ┌─────────────────────────────────────────────────────────────┐
 │  FastAPI app (src/anki_sketching/main.py, port 5050)        │
 │                                                             │
-│   web/routes.py   → serves /        (Build / editor)        │
-│   learn/routes.py → serves /learn   (Learn / practice)      │
-│   api/routes.py   → JSON endpoints                          │
+│   editor/routes.py   → serves /editor   (editor canvas)     │
+│   practice/routes.py → serves /practice (practice dash)     │
+│   api/routes.py      → JSON endpoints                       │
 │                                                             │
 │   ─── optional ────────────────────────────────────         │
 │   anki_interface/ → AnkiConnect at localhost:8765           │
 │                  → direct read of collection.anki2 (CRT)    │
-│   Only used by POST /import_deck and the Build page's       │
+│   Only used by POST /import_deck and the editor page's      │
 │   deck-list dropdown.                                       │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -49,11 +47,11 @@ Both pages read from the same backing store (`cards.db` + `graph.db` + `card_pos
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The frontend is **vanilla JS** loaded as `<script>` tags from `frontend/templates/index.html` and `learn.html`. No bundler, no framework.
+The frontend is **vanilla JS** loaded as `<script>` tags from `frontend/templates/index.html` and `practice.html`. No bundler, no framework.
 
 ## Data flow: the two main loops
 
-### Save loop (Build)
+### Save loop (Editor)
 
 ```
 User edits canvas → saveCardPositions() → POST /save_positions
@@ -70,7 +68,7 @@ User edits canvas → saveCardPositions() → POST /save_positions
 
 The JSON is the source of truth for graph structure. Every save reparses it.
 
-### Review loop (Learn)
+### Review loop (Practice)
 
 ```
 User clicks ease button → POST /review_card
@@ -88,10 +86,10 @@ User clicks ease button → POST /review_card
 | Path | Role |
 |------|------|
 | `anki_sketching/main.py` | FastAPI app, mounts statics, runs legacy migration, includes routers |
-| `anki_sketching/web/routes.py` | Serves `/` (Build page). Fetches deck list from Anki. |
-| `anki_sketching/learn/routes.py` | Serves `/learn` and `/learn/card/{id}/context` |
+| `anki_sketching/editor/routes.py` | Serves `/editor` (editor canvas) and the `/` → `/editor` redirect. Fetches deck list from Anki. |
+| `anki_sketching/practice/routes.py` | Serves `/practice` and `/practice/card/{id}/context` |
 | `anki_sketching/api/routes.py` | JSON endpoints (save, import, due, review, local cards, tags, …) |
-| `anki_interface/` | **Optional integration.** All AnkiConnect calls + direct sqlite read of `collection.anki2` for the CRT. Only used by `/import_deck` and the Build page's deck dropdown. See [anki-sync.md](./anki-sync.md). |
+| `anki_interface/` | **Optional integration.** All AnkiConnect calls + direct sqlite read of `collection.anki2` for the CRT. Only used by `/import_deck` and the editor's deck dropdown. See [anki-sync.md](./anki-sync.md). |
 | `graph/cards_db.py` | `cards` table schema, opens connections, runs migrations |
 | `graph/schema.py` | `graph.db` schema (`edges` + `config`) |
 | `graph/parse_graph.py` | `card_positions.json` → `graph.db.edges` (groups expanded into edges) |
@@ -103,11 +101,11 @@ User clicks ease button → POST /review_card
 
 ### Frontend (`frontend/static/js/`)
 
-Two app surfaces. All Build modules are loaded as `<script>` tags from `index.html`; Learn has its own single bundle.
+Two app surfaces. All editor modules are loaded as `<script>` tags from `index.html`; practice has its own single bundle.
 
-**Build (14 modules)** — see [canvas.md](./canvas.md) for the breakdown.
+**Editor (14 modules)** — see [canvas.md](./canvas.md) for the breakdown.
 
-**Learn** — `learn/main.js` is self-contained.
+**Practice** — `practice/main.js` is self-contained.
 
 ## Glossary
 

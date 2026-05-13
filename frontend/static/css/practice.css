@@ -16,7 +16,7 @@ body {
 
 /* ── Header ── */
 
-#learn-header {
+#practice-header {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -26,7 +26,7 @@ body {
     flex-shrink: 0;
 }
 
-#nav-build-btn {
+#nav-editor-btn {
     color: #b4a8ff;
     text-decoration: none;
     font-size: 13px;
@@ -36,12 +36,12 @@ body {
     flex-shrink: 0;
 }
 
-#nav-build-btn:hover {
+#nav-editor-btn:hover {
     background: #34257a;
     border-color: #5a4aaa;
 }
 
-#learn-header h1 {
+#practice-header h1 {
     font-size: 16px;
     font-weight: bold;
     color: #b4a8ff;
@@ -49,13 +49,13 @@ body {
     text-transform: uppercase;
 }
 
-#learn-count {
+#practice-count {
     font-size: 12px;
     color: #7a6eaa;
     flex: 1;
 }
 
-#learn-refresh {
+#practice-refresh {
     background: none;
     border: 1px solid #3a2b86;
     color: #b4a8ff;
@@ -65,13 +65,13 @@ body {
     font-size: 14px;
 }
 
-#learn-refresh:hover {
+#practice-refresh:hover {
     background: #34257a;
 }
 
 /* ── Main layout ── */
 
-#learn-main {
+#practice-main {
     display: flex;
     flex: 1;
     overflow: hidden;
@@ -79,7 +79,7 @@ body {
 
 /* ── Left panel — due cards grid ── */
 
-#learn-left {
+#practice-left {
     width: 360px;
     min-width: 360px;
     border-right: 1px solid #3a2b86;
@@ -165,7 +165,7 @@ body {
 
 /* ── Card component (grid) ── */
 
-.learn-card {
+.practice-card {
     width: 130px;
     height: 182px;
     flex-shrink: 0;
@@ -179,17 +179,17 @@ body {
     transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.learn-card:hover {
+.practice-card:hover {
     border-color: #5a4aaa;
     background: #34257a;
 }
 
-.learn-card.selected {
+.practice-card.selected {
     border-color: #b4a8ff;
     background: #3a2b86;
 }
 
-.learn-card-badges {
+.practice-card-badges {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -197,13 +197,13 @@ body {
     flex-shrink: 0;
 }
 
-.learn-card-due {
+.practice-card-due {
     font-size: 10px;
     color: #7a6eaa;
     white-space: nowrap;
 }
 
-.learn-card-image {
+.practice-card-image {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -214,14 +214,14 @@ body {
     position: relative;
 }
 
-.learn-card-image img {
+.practice-card-image img {
     width: 100%;
     height: 100%;
     display: block;
     object-fit: contain;
 }
 
-.learn-card-title {
+.practice-card-title {
     font-size: 10px;
     color: #c8c0f0;
     padding: 4px 8px 5px;
@@ -233,7 +233,7 @@ body {
     flex-shrink: 0;
 }
 
-.learn-card-empty {
+.practice-card-empty {
     color: #7a6eaa;
     font-style: italic;
 }
@@ -259,7 +259,7 @@ body {
 
 /* ── Right panel — context ── */
 
-#learn-right {
+#practice-right {
     flex: 1;
     overflow-y: auto;
     display: flex;
@@ -271,11 +271,11 @@ body {
     position: relative;
 }
 
-#learn-right::-webkit-scrollbar {
+#practice-right::-webkit-scrollbar {
     width: 4px;
 }
-#learn-right::-webkit-scrollbar-track { background: #150c3a; }
-#learn-right::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
+#practice-right::-webkit-scrollbar-track { background: #150c3a; }
+#practice-right::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
 
 /* Context panel sections */
 
@@ -325,7 +325,7 @@ body {
 .context-bar-scroll::-webkit-scrollbar-track { background: #150c3a; }
 .context-bar-scroll::-webkit-scrollbar-thumb { background: #3a2b86; border-radius: 2px; }
 
-/* ── Miniature card (in bars) — même format que .learn-card, un peu plus grande ── */
+/* ── Miniature card (in bars) — même format que .practice-card, un peu plus grande ── */
 
 .context-mini {
     flex-shrink: 0;
@@ -674,7 +674,7 @@ body {
 
 /* ── Loading / empty states ── */
 
-.learn-state-message {
+.practice-state-message {
     grid-column: 1 / -1;
     color: #7a6eaa;
     font-size: 13px;
