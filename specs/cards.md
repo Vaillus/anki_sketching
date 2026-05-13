@@ -166,7 +166,7 @@ Note: `get_local_card` reads from the unified `cards` table — there is no sepa
 | `POST /update_local_card` | Same as above but with input shape matching the local-card modal. |
 | `POST /upload_image` | Multipart upload. Returns `{filename, path}`. |
 | `POST /delete_local_card` | Deletes a local card and its images. Rejects Anki card IDs. |
-| `GET /card_info_all` | Returns `{card_id: {min_interval: N}}` for cards with overrides. |
+| `GET /card_info_all` | Returns `{card_info: {card_id: {min_interval: N}, ...}}` for cards with overrides. |
 | `POST /set_card_info` | Body: `{card_id, min_interval}` (pass `null` to clear). |
 
 All endpoints return `{success: bool, ...}` or `{success: false, error: str}`.

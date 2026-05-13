@@ -154,7 +154,7 @@ Edges are rewritten and blocking/depth recomputed in three places:
 |---------|----------|
 | `POST /save_positions` | `_rebuild_edges_and_blocking()` in `api/routes.py` |
 | `python build_graph.py` | Standalone CLI — recreates `graph.db` from scratch |
-| App startup | Only `migrate_db()` (idempotent schema migration). Edges are *not* recomputed at startup. |
+| App startup | Only `migrate_db()` — ensures the `config` table exists. Does *not* create the `edges` table (that's `create_database()` in `build_graph.py`) and does *not* recompute edges. On a fresh install with no `graph.db`, `_rebuild_edges_and_blocking()` early-returns until `build_graph.py` is run once. |
 
 Blocking alone (without re-parsing edges) is recomputed on `/review_card`, `/reschedule_card`, `/reschedule_distant_cards` — they call `compute_blocking_states()` directly, since changing one card's scheduling can unblock its descendants without changing the edge set.
 

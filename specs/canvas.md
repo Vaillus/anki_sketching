@@ -171,7 +171,7 @@ See [graph.md](./graph.md#groups) for the data-model side.
 
 ## Selection toolbar
 
-Appears at the bottom-right (CSS-positioned) whenever `selectedCards.size > 0`. Contains:
+Appears at the bottom-left (CSS-positioned, above the due-cards bar) whenever `selectedCards.size > 0`. Contains:
 
 - **N selected** count.
 - **🔗 Group** — creates a group (requires ≥2 selected).
@@ -242,7 +242,7 @@ window.onload:
 `applyBlockingHighlights()` is called after startup, after every save, after every review action. It:
 
 1. `GET /blocking_cards` → list of card IDs that are *blocking and not blocked* (these are the leaves you actually need to work on next).
-2. Adds the `.blocking-highlight` CSS class to matching `.card-box` elements (and removes from non-matching).
+2. Adds the `.card-blocking` CSS class to matching `.card-box` elements (and removes from non-matching).
 
 ## Keyboard shortcuts
 

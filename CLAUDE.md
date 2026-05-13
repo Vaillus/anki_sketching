@@ -1,72 +1,42 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repo.
 
 ## Project Overview
 
-A web-based spatial organization tool for Anki flashcards. Cards are displayed on an infinite canvas where you can drag, group, and connect them with arrows. The app integrates with Anki Desktop via the AnkiConnect plugin and tracks card scheduling and dependency (blocking) relationships.
+A personal drawing-practice tool served as a local web app. Exercises are organized as a skill tree (graph of prerequisite relationships), and a custom SM-2-derived scheduler surfaces only the exercises whose prerequisites are learned. Anki integration via AnkiConnect exists but is optional — exercises can also be created directly in the editor.
 
-**Prerequisites:** Anki Desktop must be running with the AnkiConnect plugin (code: 2055492159) active on `localhost:8765`.
+## Spec-driven workflow
+
+This project uses **specs in [`specs/`](specs/) as the source of truth for behavior.** The code implements the specs.
+
+Concrete rules:
+
+- **Before any non-trivial code change**, read the relevant spec(s) **and** the code they describe. If they disagree, flag the drift and ask which is correct before doing anything else.
+- **Edit the spec first, then the code.** Never the other way around. The spec defines intent; the code matches.
+- **A new feature starts as a spec change.** If the change doesn't fit cleanly into an existing spec, propose a new spec file before writing code.
+- **Don't duplicate spec content here.** Architecture details, schemas, endpoints, module roles — all live in specs. CLAUDE.md only carries workflow rules and ambient project facts.
+
+Start with [`specs/00-overview.md`](specs/00-overview.md). Each subsequent spec is concept-oriented (cards, graph, canvas, review, tags, anki-sync).
 
 ## Commands
 
 ```bash
-# Run the app (uses uv)
-bash run.sh
+# Run the app
+bash start.sh
 # Or directly:
 uv run uvicorn src.anki_sketching.main:app --reload --host 0.0.0.0 --port 5050
 
-# Rebuild the dependency graph (requires Anki running)
+# Rebuild the dependency graph from card_positions.json (rarely needed — /save_positions does this automatically)
 uv run python build_graph.py
 
-# Inspect a card's due date
+# Inspect an Anki card's due date (debugging tool, requires Anki running)
 uv run python check_card_due.py [card_id]
 ```
 
-The app is available at `http://localhost:5050`. There are no automated tests.
+The app runs at <http://localhost:5050>. There are no automated tests.
 
 ## Git
 
 - Never add `Co-Authored-By: Claude` or any Claude/Anthropic attribution to commit messages.
-
-## Architecture
-
-### Backend (FastAPI)
-
-- **`src/anki_sketching/main.py`** — App setup: mounts `frontend/static`, configures Jinja2 from `frontend/templates`, includes API and web route modules, runs on port 5000.
-- **`src/anki_sketching/api/routes.py`** — REST API: save/load canvas state (`card_positions.json`), import deck from Anki, fetch due cards from `graph.db`. Contains a global `_cached_crt` to avoid repeated reads of the Anki collection file.
-- **`src/anki_sketching/web/routes.py`** — Serves `index.html`, fetches available decks from Anki (filters for `dessin::*` decks).
-- **`src/anki_interface/`** — All communication with Anki via AnkiConnect HTTP API (`utils.py` wraps calls to `localhost:8765`). The `Card` class (`card.py`) models Anki SRS data including due date computation via collection creation timestamp (CRT).
-- **`src/graph/`** — SQLite-backed dependency graph. `build_graph.py` orchestrates: parse JSON → sync Anki state → compute blocking. Two tables: `card_state` (per-card scheduling/blocking flags) and `edges` (parent→child relationships, groups expanded to individual edges).
-
-### Due Date Calculation
-
-Review cards (type=2): `due` is days relative to the collection CRT (Unix timestamp stored in `collection.anki2`). Learning/relearning cards (type=1,3): `due` is a direct Unix timestamp. CRT is read directly from the Anki SQLite file (`get_collection_crt.py`), with a 15-second timeout for lock handling.
-
-### Blocking Logic
-
-A card **blocks** its descendants if it is not suspended/buried AND (is new/learning/relearning OR is a review due today/overdue). Blocking propagates transitively via DFS through the edges table. The `/due_cards` endpoint returns only non-blocked cards due today.
-
-### Frontend (Vanilla JS, no framework)
-
-Eleven JS modules loaded in order via `<script>` tags in `index.html`:
-
-| Module | Responsibility |
-|--------|----------------|
-| `globals.js` | Shared state: canvas position/zoom, card/group/arrow maps, selection set |
-| `bootstrap.js` | Event listeners, initialization, keyboard shortcuts, calls `loadAllSavedCardsOnStartup()` |
-| `canvas.js` | Pan/zoom transform, pinch-zoom detection (`ctrlKey=true` on macOS trackpad) |
-| `cards.js` | Import from API, render card divs with type badges, grid layout, drag via `makeDraggable()` |
-| `arrows.js` | SVG arrows between cards, 4 anchor points per card, 24px snap radius |
-| `groups.js` | Group boxes (dashed border), `groups Map` and `cardGroups Map` |
-| `selection.js` | Multi-select (shift/ctrl-click), range selection |
-| `storage.js` | Save/load canvas state JSON to backend; restores arrows and positions on startup |
-| `physics.js` | Card repulsion simulation |
-| `resize.js` | Edge-drag resizing (10px border zone) |
-| `due_cards.js` | Bottom bar of due-today cards fetched from `/due_cards` |
-
-### Persistence
-
-- **`data/card_positions.json`** — Canvas state: card positions/sizes, groups, arrows, canvas x/y/zoom. Auto-saved on changes. Gitignored.
-- **`data/graph.db`** — SQLite dependency graph. Must be rebuilt with `build_graph.py` when the canvas layout changes. Gitignored.
-- **`frontend/static/images/`** — Card images. Anki-imported images (e.g. `Pasted image *.png`) are gitignored and re-downloadable via import. Local card images (`local_*`) are tracked in git so they sync across machines.
+- Never add "Generated with Claude Code" or AI attribution to PR descriptions.
