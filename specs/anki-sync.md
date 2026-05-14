@@ -77,16 +77,18 @@ Backend (`api/routes.py::import_deck`):
      b. compute due_date_obj = card.get_due_date(crt)
             → For type=2: today + (due - days_since_crt)
             → For type=1/3: timestamp interpreted as Unix seconds
-     c. INSERT OR REPLACE INTO cards.db.cards (...)
-            → card_type, queue, due_date, raw_due, interval, ease_factor,
+     c. INSERT INTO cards.db.cards (...) ON CONFLICT(card_id) DO NOTHING
+            → card_type, queue, due_date, interval, ease_factor,
               texts_json, image_filenames_json, reps, lapses
             → locally_managed=0, is_blocking=0, is_blocked=0
-7. Return list of cards (the frontend will place them on the canvas).
+            → tags_json is left NULL (handled as `[]` at read time)
+     d. If a row was actually inserted (rowcount > 0), append it to the
+        response so the frontend places it on the canvas. Pre-existing
+        rows are skipped silently.
+7. Return list of newly-inserted cards.
 ```
 
-**Important**: `INSERT OR REPLACE` overwrites every scheduling field. This means **importing a deck wipes any locally-made review history** for the cards it contains. See [cards.md → Open questions](./cards.md#open-questions).
-
-The card content (texts, image filenames, tags) is **also overwritten** by the import. The `tags_json` field is *not* set by the import (the column stays whatever it was) — tags are app-local. But `texts_json` and `image_filenames_json` are written from Anki.
+**Import is insert-only**: cards already present in `cards.db` are left entirely untouched — scheduling, content (`texts_json`, `image_filenames_json`), tags, `min_interval`, and computed graph state all survive a re-import unchanged. Only brand-new card IDs from Anki get inserted (and returned to the frontend for canvas placement).
 
 The `Card` class in `src/anki_interface/card.py` is the workhorse that translates AnkiConnect's `cardsInfo` response into typed fields. See its module docstring for the field-by-field mapping.
 

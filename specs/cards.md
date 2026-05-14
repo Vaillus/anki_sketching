@@ -23,7 +23,7 @@ Two kinds of `card_id`, both stored as `TEXT`:
 | Anki | `1721160391157` (note's first card ID, numeric) | Yes — matches Anki's primary key |
 | Local | `local_1ccd12ff` (8 hex chars after `local_`) | Yes — generated once at creation |
 
-Identity is global across decks. Re-importing a deck does `INSERT OR REPLACE` on the `card_id`, so positions and tags on the canvas survive a re-import, but **scheduling fields are overwritten** unless `locally_managed=1` (see [Scheduling ownership](#scheduling-ownership) below — currently the import does *not* check the flag, see [Open questions](#open-questions)).
+Identity is global across decks. Re-importing a deck is **insert-only** (`INSERT … ON CONFLICT(card_id) DO NOTHING`): cards already present in `cards.db` are left entirely untouched — scheduling, content, tags, `min_interval`, and computed graph state are all preserved. Only new card IDs get inserted (and returned to the frontend for canvas placement).
 
 ## Schema: `cards.db.cards`
 
@@ -33,7 +33,6 @@ CREATE TABLE cards (
     card_type            INTEGER NOT NULL DEFAULT 0,   -- 0=new, 1=learning, 2=review, 3=relearning
     queue                INTEGER NOT NULL DEFAULT 0,   -- Anki queue; -3/-2/-1 = suspended/buried
     due_date             TEXT,                          -- ISO 'YYYY-MM-DD' (or NULL)
-    raw_due              INTEGER,                       -- Anki's raw due, kept for debugging
     interval             INTEGER NOT NULL DEFAULT 0,    -- days
     ease_factor          REAL    NOT NULL DEFAULT 2.5,
     locally_managed      BOOLEAN NOT NULL DEFAULT 0,    -- 1 once we've taken over scheduling
@@ -91,7 +90,7 @@ All three also set `locally_managed = 1`.
 The `locally_managed` flag answers "who owns the next-review-date of this card?".
 
 - **`0`** — Anki owns it. The values in `cards.db` are a snapshot from the last import.
-- **`1`** — This app owns it. Subsequent imports should *not* overwrite scheduling fields. (Note: as of now, re-import does overwrite them. See [Open questions](#open-questions).)
+- **`1`** — This app owns it. Re-imports never touch existing rows, so locally-owned scheduling is preserved.
 
 The flag is one-way: once flipped to `1`, it stays. There is no "sync back to Anki" feature — Anki's scheduling for these cards drifts from reality.
 
@@ -159,7 +158,7 @@ Note: `get_local_card` reads from the unified `cards` table — there is no sepa
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /import_deck` | Pulls a deck from Anki, inserts/replaces rows in `cards.db`. See [anki-sync.md](./anki-sync.md#import). |
+| `POST /import_deck` | Pulls a deck from Anki, inserts only new rows into `cards.db` (existing rows are left untouched). See [anki-sync.md](./anki-sync.md#import). |
 | `POST /get_cards_by_ids` | Body: `{card_ids: [...]}`. Returns full card dicts (including images, tags). Used by the canvas to render cards on startup and after edits. |
 | `POST /create_local_card` | Body: `{front_text, back_text, image_filename?, tags?}`. Returns the created card. |
 | `POST /update_card` | Updates `texts_json`, `tags_json`, and optionally `image_filenames_json` on any card (Anki or local). |
@@ -181,6 +180,5 @@ All endpoints return `{success: bool, ...}` or `{success: false, error: str}`.
 
 ## Open questions
 
-- **Re-import overwrites scheduling.** `/import_deck` does `INSERT OR REPLACE` and writes scheduling fields unconditionally, even when `locally_managed=1`. This wipes locally-made review history. Likely should skip scheduling fields when `locally_managed=1`.
 - **Local cards never graduate.** They stay `card_type=0` until first review, which is normal — but they have no way to be promoted to "Anki" status (i.e. exported to Anki).
 - **No deletion path for Anki cards.** The canvas context menu's "Supprimer la carte" only removes the card from the canvas (deletes from `card_positions.json` on next save). It does *not* delete from `cards.db` — the row sticks around with whatever last scheduling it had.

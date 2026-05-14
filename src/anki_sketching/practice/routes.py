@@ -22,12 +22,12 @@ templates = Jinja2Templates(directory=str(templates_dir))
 
 router = APIRouter()
 
-_COLS = ("card_id, card_type, queue, due_date, raw_due, interval, ease_factor,"
+_COLS = ("card_id, card_type, queue, due_date, interval, ease_factor,"
          " texts_json, image_filenames_json, reps, lapses, tags_json")
 
 
 def _build_card(row: tuple, images_dir: Path) -> dict:
-    (card_id, card_type, _queue, _due_date, _raw_due, _interval, _ease_factor,
+    (card_id, card_type, _queue, _due_date, _interval, _ease_factor,
      texts_json, image_filenames_json, _reps, _lapses, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}

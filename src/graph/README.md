@@ -20,7 +20,7 @@ Two tables:
 
 | Table       | Role |
 |------------|------|
-| `card_state` | One row per card: `card_id`, `card_type`, `queue`, `due_date`, `raw_due`, `is_blocking`, `is_blocked`. Filled from Anki then updated by the blocking logic. |
+| `card_state` | One row per card: `card_id`, `card_type`, `queue`, `due_date`, `is_blocking`, `is_blocked`. Filled from Anki then updated by the blocking logic. |
 | `edges`      | Parent → child relationships (after expanding groups). Columns: `parent_card_id`, `child_card_id`. |
 
 ## Blocking rules

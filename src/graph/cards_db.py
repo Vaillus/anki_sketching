@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS cards (
     card_type INTEGER NOT NULL DEFAULT 0,
     queue INTEGER NOT NULL DEFAULT 0,
     due_date TEXT,
-    raw_due INTEGER,
     interval INTEGER NOT NULL DEFAULT 0,
     ease_factor REAL NOT NULL DEFAULT 2.5,
     locally_managed BOOLEAN NOT NULL DEFAULT 0,
@@ -86,7 +85,7 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
 
     # Drop deprecated scalar columns (SQLite 3.35+)
     existing = {row[1] for row in conn.execute("PRAGMA table_info(cards)").fetchall()}
-    for col in ("front_text", "back_text", "image_filename"):
+    for col in ("front_text", "back_text", "image_filename", "raw_due"):
         if col in existing:
             conn.execute(f"ALTER TABLE cards DROP COLUMN {col}")
     conn.commit()
@@ -119,7 +118,7 @@ def migrate_from_legacy() -> None:
                 ).fetchone()
                 if table_check:
                     rows = graph_conn.execute("""
-                        SELECT card_id, card_type, queue, due_date, raw_due, interval,
+                        SELECT card_id, card_type, queue, due_date, interval,
                                ease_factor, locally_managed, texts_json, image_filenames_json,
                                reps, lapses, is_blocking, is_blocked
                         FROM card_state
@@ -127,10 +126,10 @@ def migrate_from_legacy() -> None:
                     for row in rows:
                         cards_conn.execute("""
                             INSERT OR IGNORE INTO cards
-                                (card_id, card_type, queue, due_date, raw_due, interval,
+                                (card_id, card_type, queue, due_date, interval,
                                  ease_factor, locally_managed, texts_json, image_filenames_json,
                                  reps, lapses, is_blocking, is_blocked)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, row)
                     cards_conn.commit()
                     print(f"  Migrated {len(rows)} cards from graph.db card_state")

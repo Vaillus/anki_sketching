@@ -205,10 +205,10 @@ def _due_display_from_db(card_type: int, due_date_str: str | None) -> str:
 def _card_from_db_row(row: tuple, images_dir) -> dict:
     """Construit un dict carte depuis une row de la table cards.
 
-    Row: (card_id, card_type, queue, due_date, raw_due, interval, ease_factor,
+    Row: (card_id, card_type, queue, due_date, interval, ease_factor,
           texts_json, image_filenames_json, reps, lapses, tags_json)
     """
-    (card_id, card_type, _queue, due_date, raw_due, interval, ease_factor,
+    (card_id, card_type, _queue, due_date, interval, ease_factor,
      texts_json, image_filenames_json, reps, lapses, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}
@@ -229,7 +229,6 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
         "tags": tags,
         "type": card_type,
         "type_label": type_labels.get(card_type, f"Unknown ({card_type})"),
-        "due": raw_due,
         "due_display": _due_display_from_db(card_type, due_date),
         "interval": interval or 0,
         "factor_percent": (ease_factor or 2.5) * 100,
@@ -238,7 +237,7 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
     }
 
 
-_CARDS_COLS = ("card_id, card_type, queue, due_date, raw_due, interval, ease_factor,"
+_CARDS_COLS = ("card_id, card_type, queue, due_date, interval, ease_factor,"
                " texts_json, image_filenames_json, reps, lapses, tags_json")
 
 
@@ -281,7 +280,6 @@ async def get_cards_by_ids(request: Request):
                         'tags': local.get("tags", []),
                         'type': 0,
                         'type_label': 'New',
-                        'due': None,
                         'due_display': 'New',
                         'interval': 0,
                         'factor_percent': 250,
@@ -336,17 +334,22 @@ async def import_deck(deck_name: str = Form(...)):
             due_date_str = due_date_obj.isoformat() if due_date_obj else None
             due_display = _due_display_from_db(card.type, due_date_str)
 
-            cards_conn.execute(
-                f"""INSERT OR REPLACE INTO cards
-                    ({_CARDS_COLS}, locally_managed, is_blocking, is_blocked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)""",
+            result = cards_conn.execute(
+                """INSERT INTO cards
+                    (card_id, card_type, queue, due_date, interval, ease_factor,
+                     texts_json, image_filenames_json, reps, lapses,
+                     locally_managed, is_blocking, is_blocked)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
+                    ON CONFLICT(card_id) DO NOTHING""",
                 (
-                    str(card_id), card.type, card.queue, due_date_str, card.due,
+                    str(card_id), card.type, card.queue, due_date_str,
                     card.interval, card.factor / 1000.0 if card.factor else 2.5,
                     json.dumps(card.texts), json.dumps(card.image_filenames),
                     card.reps, card.lapses,
                 ),
             )
+            if result.rowcount == 0:
+                continue
 
             cards_data.append({
                 "card_id": card_id,
@@ -355,7 +358,6 @@ async def import_deck(deck_name: str = Form(...)):
                 "tags": [],
                 "type": card.type,
                 "type_label": card.type_label,
-                "due": card.due,
                 "due_display": due_display,
                 "interval": card.interval,
                 "factor_percent": card.factor_percent,
