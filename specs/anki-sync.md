@@ -80,7 +80,7 @@ Backend (`api/routes.py::import_deck`):
      c. INSERT INTO cards.db.cards (...) ON CONFLICT(card_id) DO NOTHING
             → card_type, queue, due_date, interval, ease_factor,
               texts_json, image_filenames_json, reps, lapses
-            → locally_managed=0, is_blocking=0, is_blocked=0
+            → is_blocking=0, is_blocked=0
             → tags_json is left NULL (handled as `[]` at read time)
      d. If a row was actually inserted (rowcount > 0), append it to the
         response so the frontend places it on the canvas. Pre-existing

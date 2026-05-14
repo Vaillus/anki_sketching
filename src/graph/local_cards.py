@@ -35,11 +35,11 @@ def create_local_card(
     try:
         conn.execute(
             """INSERT INTO cards
-               (card_id, card_type, queue, locally_managed,
+               (card_id, card_type, queue,
                 is_blocking, is_blocked,
                 texts_json, image_filenames_json, tags_json,
                 created_at)
-               VALUES (?, 0, 0, 1, 0, 0, ?, ?, ?,
+               VALUES (?, 0, 0, 0, 0, ?, ?, ?,
                        datetime('now', 'localtime'))""",
             (card_id, json.dumps(texts), json.dumps(images), tags_json),
         )

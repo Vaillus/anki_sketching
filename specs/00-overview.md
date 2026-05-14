@@ -73,7 +73,7 @@ The JSON is the source of truth for graph structure. Every save reparses it.
 ```
 User clicks ease button → POST /review_card
                        │
-                       ├─► UPDATE cards.db SET card_type=2, due_date=…, locally_managed=1
+                       ├─► UPDATE cards.db SET card_type=2, due_date=…
                        └─► compute_blocking_states()   ← unblocks newly-eligible cards
 ```
 
@@ -117,7 +117,6 @@ Two app surfaces. All editor modules are loaded as `<script>` tags from `index.h
 | **Edge** | A `(parent_card_id, child_card_id)` row in `graph.db`. Always card-to-card after group expansion. |
 | **Blocking** | A card is *blocking* if it's due (or new/learning/relearning) and not suspended. It prevents review of its descendants. See [graph.md](./graph.md#blocking). |
 | **Blocked** | A card has at least one *blocking* ancestor. Hidden from `/due_cards`. |
-| **`locally_managed`** | Flag on `cards.db.cards`. When `1`, this app is authoritative for the card's scheduling. Always `1` for cards created in the editor. Flips to `1` on first `/review_card`, `/reschedule_card`, or `/reschedule_distant_cards` for Anki-imported cards (after which Anki's scheduling state for that card drifts). |
 | **`topo_depth`** | Longest path from any root (a node with no parents) to this card, computed in `compute_topo_depths()`. Drives the order in which due cards are surfaced. |
 | **CRT** | Anki's *collection creation time* (Unix timestamp). Only relevant during Anki import — needed to translate Anki's `due` field for review cards into real dates. See [anki-sync.md](./anki-sync.md#crt). |
 

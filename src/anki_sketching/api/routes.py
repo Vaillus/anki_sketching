@@ -338,8 +338,8 @@ async def import_deck(deck_name: str = Form(...)):
                 """INSERT INTO cards
                     (card_id, card_type, queue, due_date, interval, ease_factor,
                      texts_json, image_filenames_json, reps, lapses,
-                     locally_managed, is_blocking, is_blocked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
+                     is_blocking, is_blocked)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                     ON CONFLICT(card_id) DO NOTHING""",
                 (
                     str(card_id), card.type, card.queue, due_date_str,
@@ -456,7 +456,7 @@ async def review_card_endpoint(request: Request):
 
         cards_conn.execute(
             """UPDATE cards
-               SET card_type=2, queue=0, due_date=?, interval=?, locally_managed=1
+               SET card_type=2, queue=0, due_date=?, interval=?
                WHERE card_id=?""",
             (new_due, new_interval, str(card_id)),
         )
@@ -489,7 +489,7 @@ async def reschedule_card(request: Request):
     cards_conn = get_cards_db_conn()
     try:
         cards_conn.execute(
-            "UPDATE cards SET due_date = ?, locally_managed = 1 WHERE card_id = ?",
+            "UPDATE cards SET due_date = ? WHERE card_id = ?",
             (today, str(card_id)),
         )
         cards_conn.commit()
@@ -525,7 +525,7 @@ async def reschedule_distant_cards():
                 return JSONResponse({"success": True, "rescheduled": 0})
 
             cards_conn.executemany(
-                "UPDATE cards SET due_date = ?, locally_managed = 1 WHERE card_id = ?",
+                "UPDATE cards SET due_date = ? WHERE card_id = ?",
                 [(today, cid) for cid in to_reschedule],
             )
             cards_conn.commit()

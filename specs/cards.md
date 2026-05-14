@@ -12,7 +12,7 @@ A **card** is one item displayed on the canvas. It has:
 - A **graph state** (`is_blocking`, `is_blocked`, `topo_depth`) — computed, never input directly.
 - An optional **per-card override** (`min_interval`).
 
-All of this lives in a single table: `cards.db.cards`. There is no separate "anki_card" vs "local_card" table — local cards are just rows where `card_id` starts with `local_` and `locally_managed=1`.
+All of this lives in a single table: `cards.db.cards`. There is no separate "anki_card" vs "local_card" table — local cards are just rows whose `card_id` starts with `local_`.
 
 ## Identity
 
@@ -35,7 +35,6 @@ CREATE TABLE cards (
     due_date             TEXT,                          -- ISO 'YYYY-MM-DD' (or NULL)
     interval             INTEGER NOT NULL DEFAULT 0,    -- days
     ease_factor          REAL    NOT NULL DEFAULT 2.5,
-    locally_managed      BOOLEAN NOT NULL DEFAULT 0,    -- 1 once we've taken over scheduling
     texts_json           TEXT,                          -- JSON: {field_name: value, ...}
     image_filenames_json TEXT,                          -- JSON: ["file1.png", "file2.png", ...]
     tags_json            TEXT,                          -- JSON: ["tag1", "tag2", ...]
@@ -83,16 +82,7 @@ After import, this app never re-reads Anki's `due` for that card. Updates come f
 - `/reschedule_card` (sets `due_date = today`)
 - `/reschedule_distant_cards` (sets `due_date = today` for cards due > 5 days out)
 
-All three also set `locally_managed = 1`.
-
-## Scheduling ownership
-
-The `locally_managed` flag answers "who owns the next-review-date of this card?".
-
-- **`0`** — Anki owns it. The values in `cards.db` are a snapshot from the last import.
-- **`1`** — This app owns it. Re-imports never touch existing rows, so locally-owned scheduling is preserved.
-
-The flag is one-way: once flipped to `1`, it stays. There is no "sync back to Anki" feature — Anki's scheduling for these cards drifts from reality.
+Once a card has been reviewed or rescheduled here, its Anki-side scheduling drifts from reality — there is no "sync back to Anki" feature. Re-imports never touch existing rows, so any local progress is preserved.
 
 ## Content fields
 
@@ -136,7 +126,6 @@ A local card is a card created in the app via the canvas context menu → "Nouve
 | `card_id` | `local_<uuid8>` |
 | `card_type` | `0` (New) |
 | `queue` | `0` |
-| `locally_managed` | `1` |
 | `texts_json` | `{"Front": …, "Back": …}` (only present fields) |
 | `image_filenames_json` | `[]` or `["local_xxx.png", …]` |
 | `created_at` | `datetime('now', 'localtime')` at creation |

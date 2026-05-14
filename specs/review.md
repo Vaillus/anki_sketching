@@ -23,7 +23,6 @@ This app uses a **deliberately simpler** scheduling than Anki's SM-2. The user i
 After any of the three:
 - `card_type` → `2` (Review).
 - `queue` → `0` (active).
-- `locally_managed` → `1`.
 - `due_date` → ISO date computed as above.
 - `min_interval` is applied as a clamp: if `new_interval < min_interval`, raise it.
 
@@ -200,11 +199,11 @@ Two operations don't go through the reviewer but affect scheduling:
 
 ### `POST /reschedule_card`
 
-Body: `{card_id}`. Sets `due_date = today`, `locally_managed = 1`. Triggered by the **"Désapprendre"** context menu item on the canvas. Recomputes blocking. Rejects local card IDs.
+Body: `{card_id}`. Sets `due_date = today`. Triggered by the **"Désapprendre"** context menu item on the canvas. Recomputes blocking. Rejects local card IDs.
 
 ### `POST /reschedule_distant_cards`
 
-No body. Finds every card with `card_type=2 AND queue>=0 AND due_date > today+5d` and resets each to `due_date = today`, `locally_managed=1`. Returns the count. Triggered by the toolbar "📅 Désapprendre lointaines" button.
+No body. Finds every card with `card_type=2 AND queue>=0 AND due_date > today+5d` and resets each to `due_date = today`. Returns the count. Triggered by the toolbar "📅 Désapprendre lointaines" button.
 
 These are workflow tools for "I haven't been doing reviews for a while, snap everything back to today so I can catch up."
 
@@ -229,7 +228,7 @@ Use case: "no matter what I answer, don't show me this card again for at least N
 
 - **No "show answer" step.** Both the modal and the practice page show front + back simultaneously. Worth adding a reveal step for genuine self-testing.
 - **SM-2 module is dead code.** `src/graph/srs.py` is fully implemented (Again/Hard/Good/Easy with ease-factor updates and fuzz) but never imported. Decide whether to wire it up or remove it.
-- **Ease factor / reps / lapses never update.** They drift from reality once a card becomes `locally_managed`.
+- **Ease factor / reps / lapses never update.** They drift from reality once a card has been reviewed locally.
 - **No batch review.** Cards are reviewed one at a time. There's no "session" notion (count, progress, time spent).
 - **No "skip" or "snooze".** The only way out of a card is to answer it.
 - **Reviewer modal duplicates practice ease-button logic.** Refactor candidate: extract the ease-controls UI into a shared component.

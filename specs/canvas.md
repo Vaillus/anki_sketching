@@ -136,7 +136,7 @@ Content structure (built in `cards.js::importDeck` and `storage.js::loadAllSaved
 | Désélectionner | Removes the card from the selection. |
 | Supprimer la carte | Removes from canvas, deletes arrows touching it. **Does not delete from `cards.db`.** |
 | Mettre au premier plan | Bumps `zIndex` to `++cardCounter`. |
-| Désapprendre | `POST /reschedule_card` — sets `due_date=today`, `locally_managed=1`. Refreshes blocking and the due-cards bar. |
+| Désapprendre | `POST /reschedule_card` — sets `due_date=today`. Refreshes blocking and the due-cards bar. |
 | Intervalle minimum… | `prompt()` for an integer; calls `POST /set_card_info` with `min_interval=N` (or `null` to clear). Used by `/review_card` to clamp the next interval. |
 | Modifier la carte | Opens the local-card modal in edit mode (works for both Anki and local cards — edits text and tags; image edits are local-only). |
 
