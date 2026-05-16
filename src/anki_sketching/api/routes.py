@@ -182,9 +182,10 @@ async def get_collection_info():
 
         return JSONResponse(info)
     except Exception as e:
+        # Le profil Anki vit sur le disque local ; injoignable depuis un déploiement.
         return JSONResponse(
             {"success": False, "error": str(e)},
-            status_code=500
+            status_code=503
         )
 
 
@@ -296,8 +297,8 @@ async def import_deck(deck_name: str = Form(...)):
     card_ids = get_cards_ids(deck_name)
     if card_ids is None:
         raise HTTPException(
-            status_code=500,
-            detail="Impossible de récupérer les cartes. Vérifiez Anki et le nom du paquet."
+            status_code=503,
+            detail="AnkiConnect injoignable. Vérifiez qu'Anki est lancé localement."
         )
 
     images_dir = get_images_dir()

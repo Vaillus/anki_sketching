@@ -2,6 +2,7 @@
 Module pour gérer tous les chemins de fichiers du projet.
 Utilise Path pour calculer les chemins relatifs à la racine du projet.
 """
+import os
 from pathlib import Path
 from typing import Union
 
@@ -9,7 +10,7 @@ from typing import Union
 def get_project_root() -> Path:
     """
     Calcule la racine du projet (dossier contenant pyproject.toml).
-    
+
     Returns:
         Path: Chemin vers la racine du projet
     """
@@ -21,10 +22,14 @@ def get_data_dir() -> Path:
     """
     Retourne le chemin vers le dossier data du projet.
 
+    Honore DATA_DIR (env var) pour la persistance sur volume monté
+    en prod ; fallback sur <project_root>/data en local.
+
     Returns:
         Path: Chemin vers data/
     """
-    data_dir = get_project_root() / "data"
+    env_dir = os.environ.get("DATA_DIR")
+    data_dir = Path(env_dir) if env_dir else get_project_root() / "data"
     ensure_dir_exists(data_dir)
     return data_dir
 
