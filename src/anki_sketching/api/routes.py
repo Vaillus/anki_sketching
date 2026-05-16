@@ -17,7 +17,6 @@ from src.graph.blocking import compute_blocking_states, compute_topo_depths
 from src.graph.cards_db import get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import get_config, set_config, migrate_db
-from src.graph.card_info import set_card_info, get_all_card_info
 from src.graph.local_cards import (
     create_local_card,
     get_local_card,
@@ -432,13 +431,13 @@ async def review_card_endpoint(request: Request):
     cards_conn = get_cards_db_conn()
     try:
         row = cards_conn.execute(
-            "SELECT card_type, interval, ease_factor, min_interval FROM cards WHERE card_id = ?",
+            "SELECT card_type, interval, ease_factor FROM cards WHERE card_id = ?",
             (str(card_id),),
         ).fetchone()
         if not row:
             return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
 
-        _card_type, current_interval, ease, min_ivl = row
+        _card_type, current_interval, _ease = row
         today = date.today()
 
         if action == "failed":
@@ -447,10 +446,6 @@ async def review_card_endpoint(request: Request):
             new_interval = max(1, current_interval or 1)
         else:  # change
             new_interval = int(data.get("interval", current_interval or 1))
-
-        # Applique l'intervalle minimum si défini
-        if min_ivl and new_interval < min_ivl:
-            new_interval = min_ivl
 
         new_due = (today + timedelta(days=new_interval)).isoformat()
 
@@ -540,31 +535,6 @@ async def reschedule_distant_cards():
             cards_conn.close()
 
         return JSONResponse({"success": True, "rescheduled": len(to_reschedule)})
-    except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-
-
-@router.get("/card_info_all")
-async def card_info_all():
-    """Retourne toutes les infos par carte (min_interval, etc.)."""
-    try:
-        info = get_all_card_info()
-        return JSONResponse({"card_info": info})
-    except Exception:
-        return JSONResponse({"card_info": {}})
-
-
-@router.post("/set_card_info")
-async def set_card_info_endpoint(request: Request):
-    """Upsert des infos pour une carte (min_interval, etc.)."""
-    data = await request.json()
-    card_id = data.get("card_id")
-    if card_id is None:
-        return JSONResponse({"success": False, "error": "card_id requis"}, status_code=400)
-    fields = {k: v for k, v in data.items() if k != "card_id"}
-    try:
-        set_card_info(str(card_id), **fields)
-        return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 

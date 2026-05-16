@@ -41,9 +41,6 @@ let marqueeJustEnded = false;
 // Sensibilité du pinch-to-zoom (plus petit = moins sensible)
 const PINCH_ZOOM_SENSITIVITY = 0.004;
 
-// Overrides par carte (chargés depuis /card_info_all au démarrage)
-const cardMinIntervals = new Map();
-
 // Cache global des tags
 let allTagsCache = [];
 

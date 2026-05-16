@@ -95,7 +95,6 @@ User clicks ease button → POST /review_card
 | `graph/parse_graph.py` | `card_positions.json` → `graph.db.edges` (groups expanded into edges) |
 | `graph/blocking.py` | `is_blocking` / `is_blocked` computation + `topo_depth` |
 | `graph/local_cards.py` | CRUD for cards with `local_*` IDs |
-| `graph/card_info.py` | `min_interval` getter/setter (per-card scheduling override) |
 | `graph/srs.py` | SM-2 scheduler (ported from anki-sm-2, AGPL). The conceptual basis for the app's scheduling. The current `/review_card` endpoint uses a simplified Failed/Maintain/Change shape that doesn't call into this module directly — see [review.md](./review.md). |
 | `utilities/paths.py` | Project paths (data dir, images dir, positions file) |
 

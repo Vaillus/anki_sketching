@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS cards (
     is_blocking BOOLEAN NOT NULL DEFAULT 0,
     is_blocked BOOLEAN NOT NULL DEFAULT 0,
     topo_depth INTEGER NOT NULL DEFAULT 0,
-    min_interval INTEGER,
     created_at TEXT
 );
 """
@@ -49,7 +48,6 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
     existing = {row[1] for row in cursor.fetchall()}
 
     add_migrations = [
-        ("min_interval", "INTEGER"),
         ("front_text", "TEXT"),
         ("back_text", "TEXT"),
         ("image_filename", "TEXT"),
@@ -84,7 +82,7 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
 
     # Drop deprecated scalar columns (SQLite 3.35+)
     existing = {row[1] for row in conn.execute("PRAGMA table_info(cards)").fetchall()}
-    for col in ("front_text", "back_text", "image_filename", "raw_due", "locally_managed"):
+    for col in ("front_text", "back_text", "image_filename", "raw_due", "locally_managed", "min_interval"):
         if col in existing:
             conn.execute(f"ALTER TABLE cards DROP COLUMN {col}")
     conn.commit()
@@ -135,25 +133,9 @@ def migrate_from_legacy() -> None:
             finally:
                 graph_conn.close()
 
-        # 2. Merger card_info.min_interval
+        # 2. Merger local_card_content
         info_conn = sqlite3.connect(str(card_info_path))
         try:
-            # card_info table
-            table_check = info_conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='card_info'"
-            ).fetchone()
-            if table_check:
-                rows = info_conn.execute("SELECT card_id, min_interval FROM card_info").fetchall()
-                for card_id, min_interval in rows:
-                    if min_interval is not None:
-                        cards_conn.execute(
-                            "UPDATE cards SET min_interval = ? WHERE card_id = ?",
-                            (min_interval, card_id),
-                        )
-                cards_conn.commit()
-                print(f"  Merged {len(rows)} card_info entries")
-
-            # 3. Merger local_card_content
             table_check = info_conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='local_card_content'"
             ).fetchone()
@@ -186,7 +168,7 @@ def migrate_from_legacy() -> None:
         finally:
             info_conn.close()
 
-        # 4. Renommer card_info.db en .bak
+        # 3. Renommer card_info.db en .bak
         bak_path = card_info_path.with_suffix(".db.bak")
         card_info_path.rename(bak_path)
         print("  Renamed card_info.db → card_info.db.bak")

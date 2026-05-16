@@ -24,7 +24,6 @@ After any of the three:
 - `card_type` → `2` (Review).
 - `queue` → `0` (active).
 - `due_date` → ISO date computed as above.
-- `min_interval` is applied as a clamp: if `new_interval < min_interval`, raise it.
 
 The endpoint is `POST /review_card` (`src/anki_sketching/api/routes.py::review_card_endpoint`).
 
@@ -206,16 +205,6 @@ Body: `{card_id}`. Sets `due_date = today`. Triggered by the **"Désapprendre"**
 No body. Finds every card with `card_type=2 AND queue>=0 AND due_date > today+5d` and resets each to `due_date = today`. Returns the count. Triggered by the toolbar "📅 Désapprendre lointaines" button.
 
 These are workflow tools for "I haven't been doing reviews for a while, snap everything back to today so I can catch up."
-
-## Per-card minimum interval
-
-`min_interval` (INTEGER, nullable) is an override that clamps the next interval upward on `Failed` or `Maintain`. Set via the canvas card context menu → "Intervalle minimum…" → `POST /set_card_info`.
-
-```
-new_interval = max(new_interval, min_interval)  if min_interval is set
-```
-
-Use case: "no matter what I answer, don't show me this card again for at least N days." Applied in `review_card_endpoint()` after computing the raw new interval.
 
 ## What this spec does not cover
 
