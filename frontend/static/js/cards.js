@@ -66,7 +66,7 @@ function importDeck(deckName) {
             let content = '';
             
             // Ajouter les informations de planification en haut
-            if (card.type !== undefined && card.type_label) {
+            if (card.type_label) {
                 const typeClass = card.type_label.toLowerCase().replace(' ', '-');
                 content += '<div class="card-info">';
                 content += `<span class="card-type ${typeClass}">${card.type_label}</span>`;

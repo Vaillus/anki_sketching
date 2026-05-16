@@ -14,15 +14,14 @@ The editor page also has a smaller **reviewer modal**: clicking a chip in the bo
 
 This app uses a **deliberately simpler** scheduling than Anki's SM-2. The user is offered three options after seeing the answer:
 
-| Button | Next due | Locks `card_type=2`? |
-|--------|----------|----------------------|
+| Button | Next due | Flips `is_new` to `0`? |
+|--------|----------|------------------------|
 | **Failed** | `today + 1 day` | yes |
 | **Maintain** | `today + max(1, current_interval)` days | yes |
 | **Change** | `today + N` days (user picks N with `−` / `+` / direct edit) | yes |
 
 After any of the three:
-- `card_type` → `2` (Review).
-- `queue` → `0` (active).
+- `is_new` → `0` (reviewed at least once).
 - `due_date` → ISO date computed as above.
 
 The endpoint is `POST /review_card` (`src/anki_sketching/api/routes.py::review_card_endpoint`).
@@ -34,9 +33,7 @@ Body: { card_id: "...", action: "failed" | "maintain" | "change", interval?: N }
 
 After updating the row, `compute_blocking_states()` is called (descendants may become unblocked).
 
-The ease factor, `reps`, and `lapses` columns exist in the schema but are **not updated** by this scheduling — they remain whatever Anki last reported. That's a deliberate simplification; see [Open questions](#open-questions).
-
-There is also a separate SM-2 implementation at `src/graph/srs.py` (ported from `anki-sm-2`, AGPL) that **is not currently wired up**. It's preserved as a possible future scheduler.
+There is also a separate SM-2 implementation at `src/graph/srs.py` (ported from `anki-sm-2`, AGPL) that **is not currently wired up**. It's kept as reference material for how SM-2 works.
 
 ## The practice page
 
@@ -169,26 +166,25 @@ The modal also re-runs `applyBlockingHighlights()` on the editor canvas after a 
 `GET /due_cards` returns the queue. The query is in `api/routes.py::get_due_cards`:
 
 ```sql
-SELECT <cols>, ease_factor AS ease2
+SELECT <cols>
 FROM cards
 WHERE is_blocked = 0
-  AND queue >= 0
   AND (
-    card_type = 0
-    OR (due_date IS NULL AND card_type IN (1, 3))
-    OR (due_date IS NOT NULL AND date(due_date) <= date('now', 'localtime'))
+    is_new = 1
+    OR due_date IS NULL
+    OR date(due_date) <= date('now', 'localtime')
   )
 ORDER BY
   topo_depth ASC,
   CASE
-    WHEN due_date IS NULL AND card_type IN (1, 3) THEN 0  -- learning/relearning first
-    WHEN due_date IS NOT NULL THEN 1                       -- then dated review cards
-    ELSE 2                                                 -- new cards last
+    WHEN is_new = 0 AND due_date IS NULL THEN 0  -- "review now" (no date) first
+    WHEN is_new = 0 AND due_date IS NOT NULL THEN 1  -- then dated review cards
+    ELSE 2                                         -- new cards last
   END,
   due_date ASC
 ```
 
-Note: **new cards (`card_type=0`) are sorted to the end** of each `topo_depth` bucket. This is deliberate — finish what you've started before adding new material.
+Note: **new cards (`is_new = 1`) are sorted to the end** of each `topo_depth` bucket. This is deliberate — finish what you've started before adding new material.
 
 Each row is then converted to the standard card-dict shape via `_card_from_db_row()` and returned in `{success: true, cards: [...], total: N}`.
 
@@ -202,7 +198,7 @@ Body: `{card_id}`. Sets `due_date = today`. Triggered by the **"Désapprendre"**
 
 ### `POST /reschedule_distant_cards`
 
-No body. Finds every card with `card_type=2 AND queue>=0 AND due_date > today+5d` and resets each to `due_date = today`. Returns the count. Triggered by the toolbar "📅 Désapprendre lointaines" button.
+No body. Finds every card with `is_new = 0 AND due_date IS NOT NULL AND due_date > today+5d` and resets each to `due_date = today`. Returns the count. Triggered by the toolbar "📅 Désapprendre lointaines" button.
 
 These are workflow tools for "I haven't been doing reviews for a while, snap everything back to today so I can catch up."
 
@@ -216,8 +212,7 @@ These are workflow tools for "I haven't been doing reviews for a while, snap eve
 ## Open questions
 
 - **No "show answer" step.** Both the modal and the practice page show front + back simultaneously. Worth adding a reveal step for genuine self-testing.
-- **SM-2 module is dead code.** `src/graph/srs.py` is fully implemented (Again/Hard/Good/Easy with ease-factor updates and fuzz) but never imported. Decide whether to wire it up or remove it.
-- **Ease factor / reps / lapses never update.** They drift from reality once a card has been reviewed locally.
+- **SM-2 module is dead code.** `src/graph/srs.py` is fully implemented (Again/Hard/Good/Easy with ease-factor updates and fuzz) but never imported. Kept as reference material on how SM-2 works.
 - **No batch review.** Cards are reviewed one at a time. There's no "session" notion (count, progress, time spent).
 - **No "skip" or "snooze".** The only way out of a card is to answer it.
 - **Reviewer modal duplicates practice ease-button logic.** Refactor candidate: extract the ease-controls UI into a shared component.

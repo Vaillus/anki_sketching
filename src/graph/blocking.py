@@ -9,25 +9,20 @@ from typing import Any, Optional
 
 
 def _is_blocking_row(
-    card_type: int,
-    queue: int,
+    is_new: bool,
     due_date_str: Optional[str],
 ) -> bool:
-    """Retourne True si la carte est bloquante selon type, queue et due_date."""
-    if queue in (-3, -2, -1):
-        return False
-    if card_type == 0:
-        return True  # new cards always block
-    if card_type in (1, 2, 3):
-        if due_date_str is None:
-            return True  # due now
-        try:
-            dt = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-            due_date = dt.date() if hasattr(dt, "date") else date(dt.year, dt.month, dt.day)
-            return due_date <= date.today()
-        except (ValueError, TypeError):
-            return True
-    return False
+    """Retourne True si la carte est bloquante (new ou due aujourd'hui ou avant)."""
+    if is_new:
+        return True
+    if due_date_str is None:
+        return True
+    try:
+        dt = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+        due_date = dt.date() if hasattr(dt, "date") else date(dt.year, dt.month, dt.day)
+        return due_date <= date.today()
+    except (ValueError, TypeError):
+        return True
 
 
 def _get_children(graph_conn: sqlite3.Connection, parent_card_id: str) -> list[str]:
@@ -63,11 +58,11 @@ def compute_blocking_states(
     Phase 2 : propage is_blocked via les edges (graph.db) vers cards.db.
     """
     cursor = cards_conn.cursor()
-    cursor.execute("SELECT card_id, card_type, queue, due_date FROM cards")
+    cursor.execute("SELECT card_id, is_new, due_date FROM cards")
     rows = cursor.fetchall()
 
-    for card_id, card_type, queue, due_date in rows:
-        is_blocking = 1 if _is_blocking_row(card_type, queue, due_date) else 0
+    for card_id, is_new, due_date in rows:
+        is_blocking = 1 if _is_blocking_row(bool(is_new), due_date) else 0
         cursor.execute(
             "UPDATE cards SET is_blocking = ? WHERE card_id = ?",
             (is_blocking, card_id),
@@ -75,8 +70,8 @@ def compute_blocking_states(
 
     cursor.execute("UPDATE cards SET is_blocked = 0")
 
-    for card_id, card_type, queue, due_date in rows:
-        if _is_blocking_row(card_type, queue, due_date):
+    for card_id, is_new, due_date in rows:
+        if _is_blocking_row(bool(is_new), due_date):
             _mark_descendants_blocked(cards_conn, graph_conn, card_id)
 
     cards_conn.commit()
@@ -127,11 +122,11 @@ def get_blocking_report(cards_conn: sqlite3.Connection) -> dict[str, Any]:
     """Retourne un rapport avec statistiques et listes des cartes blocking/blocked."""
     cursor = cards_conn.cursor()
     cursor.execute(
-        """SELECT card_id, card_type, queue, due_date, is_blocking, is_blocked
+        """SELECT card_id, is_new, due_date, is_blocking, is_blocked
            FROM cards ORDER BY card_id"""
     )
     rows = cursor.fetchall()
-    columns = ["card_id", "card_type", "queue", "due_date", "is_blocking", "is_blocked"]
+    columns = ["card_id", "is_new", "due_date", "is_blocking", "is_blocked"]
     blocking_list = []
     blocked_list = []
     for row in rows:

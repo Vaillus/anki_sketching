@@ -40,7 +40,7 @@ def _clamp_interval(interval: int) -> int:
 
 
 def review_card(
-    card_type: int,
+    is_new: bool,
     interval: int,
     ease: float,
     rating: int,
@@ -49,19 +49,19 @@ def review_card(
     """Calcule le nouvel état SRS d'une carte après une review.
 
     Args:
-        card_type: 0=New, 2=Review
+        is_new: True si la carte n'a encore jamais été revue
         interval: intervalle actuel en jours
         ease: ease factor (float, ex: 2.5)
         rating: 1=Again, 2=Hard, 3=Good, 4=Easy
         due_date: date due ISO (YYYY-MM-DD), pour calculer l'overdue
 
     Returns:
-        dict {card_type, interval, ease, due_date}
+        dict {interval, ease, due_date}
     """
     today = date.today()
 
-    if card_type == 0:
-        # Nouvelle carte → passe en Review
+    if is_new:
+        # Première review → passe en Review
         new_ease = ease if ease else STARTING_EASE
         if rating == AGAIN:
             new_interval = MINIMUM_INTERVAL
@@ -79,13 +79,12 @@ def review_card(
         new_interval = _clamp_interval(new_interval)
         new_due = (today + timedelta(days=new_interval)).isoformat()
         return {
-            "card_type": 2,
             "interval": new_interval,
             "ease": max(MIN_EASE, new_ease),
             "due_date": new_due,
         }
 
-    # Review card (type == 2)
+    # Already-reviewed card
     overdue = 0
     if due_date:
         try:
@@ -110,7 +109,6 @@ def review_card(
     new_interval = _clamp_interval(_fuzz_interval(new_interval))
     new_due = (today + timedelta(days=new_interval)).isoformat()
     return {
-        "card_type": 2,
         "interval": new_interval,
         "ease": max(MIN_EASE, new_ease),
         "due_date": new_due,

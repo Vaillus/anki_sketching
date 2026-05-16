@@ -8,9 +8,8 @@ A **card** is one item displayed on the canvas. It has:
 
 - An **identity** (the `card_id`).
 - A **content snapshot** (text fields, image filenames, tags) — copied from Anki on import for Anki cards, or authored in the app for local cards.
-- A **scheduling state** (type, queue, due date, interval, ease) — originally from Anki, may become locally managed.
+- A **scheduling state** (`is_new`, due date, interval) — seeded from Anki on import, then managed locally.
 - A **graph state** (`is_blocking`, `is_blocked`, `topo_depth`) — computed, never input directly.
-- An optional **per-card override** (`min_interval`).
 
 All of this lives in a single table: `cards.db.cards`. There is no separate "anki_card" vs "local_card" table — local cards are just rows whose `card_id` starts with `local_`.
 
@@ -23,59 +22,39 @@ Two kinds of `card_id`, both stored as `TEXT`:
 | Anki | `1721160391157` (note's first card ID, numeric) | Yes — matches Anki's primary key |
 | Local | `local_1ccd12ff` (8 hex chars after `local_`) | Yes — generated once at creation |
 
-Identity is global across decks. Re-importing a deck is **insert-only** (`INSERT … ON CONFLICT(card_id) DO NOTHING`): cards already present in `cards.db` are left entirely untouched — scheduling, content, tags, `min_interval`, and computed graph state are all preserved. Only new card IDs get inserted (and returned to the frontend for canvas placement).
+Identity is global across decks. Re-importing a deck is **insert-only** (`INSERT … ON CONFLICT(card_id) DO NOTHING`): cards already present in `cards.db` are left entirely untouched — scheduling, content, tags, and computed graph state are all preserved. Only new card IDs get inserted (and returned to the frontend for canvas placement).
 
 ## Schema: `cards.db.cards`
 
 ```sql
 CREATE TABLE cards (
     card_id              TEXT PRIMARY KEY,
-    card_type            INTEGER NOT NULL DEFAULT 0,   -- 0=new, 1=learning, 2=review, 3=relearning
-    queue                INTEGER NOT NULL DEFAULT 0,   -- Anki queue; -3/-2/-1 = suspended/buried
+    is_new               BOOLEAN NOT NULL DEFAULT 1,    -- 1 until the card's first review
     due_date             TEXT,                          -- ISO 'YYYY-MM-DD' (or NULL)
     interval             INTEGER NOT NULL DEFAULT 0,    -- days
-    ease_factor          REAL    NOT NULL DEFAULT 2.5,
     texts_json           TEXT,                          -- JSON: {field_name: value, ...}
     image_filenames_json TEXT,                          -- JSON: ["file1.png", "file2.png", ...]
     tags_json            TEXT,                          -- JSON: ["tag1", "tag2", ...]
-    reps                 INTEGER NOT NULL DEFAULT 0,
-    lapses               INTEGER NOT NULL DEFAULT 0,
     is_blocking          BOOLEAN NOT NULL DEFAULT 0,    -- computed
     is_blocked           BOOLEAN NOT NULL DEFAULT 0,    -- computed
     topo_depth           INTEGER NOT NULL DEFAULT 0,    -- computed
-    min_interval         INTEGER,                       -- optional override (days)
     created_at           TEXT                           -- only set for local cards
 );
 ```
 
 Migrations are handled idempotently in `graph/cards_db.py::migrate_cards_db`. There is also a one-shot `migrate_from_legacy()` (in `main.py` startup) that consumes the old `card_info.db` + `graph.db.card_state` if present. Both are safe to run on every startup.
 
-## Card types and queue
+## `is_new`
 
-The `card_type` and `queue` semantics match Anki's:
+A card is **new** until its first review in this app. After that, `is_new` flips to `0` permanently and stays there — there is no demotion path.
 
-| `card_type` | Meaning | `due_date` semantics in this app |
-|-------------|---------|---------------------------------|
-| `0` | New (never reviewed) | `NULL` |
-| `1` | Learning | `NULL` (treated as "review now") |
-| `2` | Review | ISO date — the day it's next due |
-| `3` | Relearning | `NULL` (treated as "review now") |
+The flag is set at import: any Anki card with `type == 0` (Anki's "New") imports as `is_new = 1`; everything else (Learning, Review, Relearning) imports as `is_new = 0`. Anki's `queue` field — including suspended / buried states — is **discarded**: this app has no suspend/bury concept, so all imported cards become reviewable. Local cards always start with `is_new = 1`.
 
-`queue` values from Anki:
-
-| `queue` | Meaning | Effect |
-|---------|---------|--------|
-| `-3` | Sched buried | Excluded from review and from blocking |
-| `-2` | User-buried | Same |
-| `-1` | Suspended | Same |
-| `0` | New | Normal |
-| `1`+ | Learning / review / etc. | Normal |
-
-The `WHERE queue >= 0` filter is the canonical "card is active" check.
+`is_new = 1` is treated as "always due" everywhere it matters (the `/due_cards` query, the blocking check). After the first review, the card's lifecycle is fully governed by `due_date`.
 
 ## Due date semantics
 
-The `due_date` column is **always an ISO date string** (or `NULL`). It is *not* Anki's raw `due` integer — which would mean different things for `card_type=2` (days since CRT) vs `card_type=1/3` (Unix timestamp). The translation happens in `Card.get_due_date(crt)` during import (`src/anki_interface/card.py`).
+The `due_date` column is **always an ISO date string** (or `NULL`). It is *not* Anki's raw `due` integer — which would mean different things for review cards (days since CRT) vs learning/relearning (Unix timestamp). The translation happens in `Card.get_due_date(crt)` during import (`src/anki_interface/card.py`); the result is then stored as ISO regardless of the card's Anki state.
 
 After import, this app never re-reads Anki's `due` for that card. Updates come from:
 - `/review_card` (sets `due_date = today + new_interval`)
@@ -124,8 +103,7 @@ A local card is a card created in the app via the canvas context menu → "Nouve
 | Field | Default for local cards |
 |-------|------------------------|
 | `card_id` | `local_<uuid8>` |
-| `card_type` | `0` (New) |
-| `queue` | `0` |
+| `is_new` | `1` |
 | `texts_json` | `{"Front": …, "Back": …}` (only present fields) |
 | `image_filenames_json` | `[]` or `["local_xxx.png", …]` |
 | `created_at` | `datetime('now', 'localtime')` at creation |
@@ -154,8 +132,6 @@ Note: `get_local_card` reads from the unified `cards` table — there is no sepa
 | `POST /update_local_card` | Same as above but with input shape matching the local-card modal. |
 | `POST /upload_image` | Multipart upload. Returns `{filename, path}`. |
 | `POST /delete_local_card` | Deletes a local card and its images. Rejects Anki card IDs. |
-| `GET /card_info_all` | Returns `{card_info: {card_id: {min_interval: N}, ...}}` for cards with overrides. |
-| `POST /set_card_info` | Body: `{card_id, min_interval}` (pass `null` to clear). |
 
 All endpoints return `{success: bool, ...}` or `{success: false, error: str}`.
 
@@ -169,5 +145,5 @@ All endpoints return `{success: bool, ...}` or `{success: false, error: str}`.
 
 ## Open questions
 
-- **Local cards never graduate.** They stay `card_type=0` until first review, which is normal — but they have no way to be promoted to "Anki" status (i.e. exported to Anki).
+- **Local cards never graduate.** They stay `is_new = 1` until first review, which is normal — but they have no way to be promoted to "Anki" status (i.e. exported to Anki).
 - **No deletion path for Anki cards.** The canvas context menu's "Supprimer la carte" only removes the card from the canvas (deletes from `card_positions.json` on next save). It does *not* delete from `cards.db` — the row sticks around with whatever last scheduling it had.

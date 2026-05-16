@@ -73,11 +73,11 @@ The JSON is the source of truth for graph structure. Every save reparses it.
 ```
 User clicks ease button → POST /review_card
                        │
-                       ├─► UPDATE cards.db SET card_type=2, due_date=…
+                       ├─► UPDATE cards.db SET is_new=0, due_date=…
                        └─► compute_blocking_states()   ← unblocks newly-eligible cards
 ```
 
-`/due_cards` then returns cards with `is_blocked=0 AND queue >= 0 AND due`, ordered by `topo_depth` so foundational cards bubble up.
+`/due_cards` then returns cards with `is_blocked=0 AND (is_new OR due_date <= today)`, ordered by `topo_depth` so foundational cards bubble up.
 
 ## Module map
 
@@ -114,7 +114,7 @@ Two app surfaces. All editor modules are loaded as `<script>` tags from `index.h
 | **Group** | A visual cluster of cards (dashed border) that can act as a single endpoint for an arrow. Groups are *not* nodes in the dependency graph: when an arrow attaches to a group, it's expanded into one edge per member at parse time. See [graph.md](./graph.md#groups). |
 | **Arrow** | A directed connection between two endpoints (card or group) drawn on the canvas. Each endpoint has an anchor (`top` / `bottom` / `left` / `right`) for visual routing only — the anchor has no semantic meaning. |
 | **Edge** | A `(parent_card_id, child_card_id)` row in `graph.db`. Always card-to-card after group expansion. |
-| **Blocking** | A card is *blocking* if it's due (or new/learning/relearning) and not suspended. It prevents review of its descendants. See [graph.md](./graph.md#blocking). |
+| **Blocking** | A card is *blocking* if it's due now (or `is_new`). It prevents review of its descendants. See [graph.md](./graph.md#blocking). |
 | **Blocked** | A card has at least one *blocking* ancestor. Hidden from `/due_cards`. |
 | **`topo_depth`** | Longest path from any root (a node with no parents) to this card, computed in `compute_topo_depths()`. Drives the order in which due cards are surfaced. |
 | **CRT** | Anki's *collection creation time* (Unix timestamp). Only relevant during Anki import — needed to translate Anki's `due` field for review cards into real dates. See [anki-sync.md](./anki-sync.md#crt). |

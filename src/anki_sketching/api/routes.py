@@ -188,27 +188,26 @@ async def get_collection_info():
         )
 
 
-def _due_display_from_db(card_type: int, due_date_str: str | None) -> str:
+def _due_display_from_db(is_new: bool, due_date_str: str | None) -> str:
     """Calcule le due_display depuis les données DB."""
-    type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
-    if card_type == 0:
+    if is_new:
         return "New"
     if due_date_str is None:
         return "À réviser"
     try:
         return format_due_relative(date.fromisoformat(due_date_str[:10]))
     except (ValueError, TypeError):
-        return type_labels.get(card_type, "?")
+        return "Review"
 
 
 def _card_from_db_row(row: tuple, images_dir) -> dict:
     """Construit un dict carte depuis une row de la table cards.
 
-    Row: (card_id, card_type, queue, due_date, interval, ease_factor,
-          texts_json, image_filenames_json, reps, lapses, tags_json)
+    Row: (card_id, is_new, due_date, interval,
+          texts_json, image_filenames_json, tags_json)
     """
-    (card_id, card_type, _queue, due_date, interval, ease_factor,
-     texts_json, image_filenames_json, reps, lapses, tags_json) = row
+    (card_id, is_new, due_date, interval,
+     texts_json, image_filenames_json, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}
     image_filenames = json.loads(image_filenames_json) if image_filenames_json else []
@@ -219,25 +218,21 @@ def _card_from_db_row(row: tuple, images_dir) -> dict:
     ]
     tags = json.loads(tags_json) if tags_json else []
 
-    type_labels = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
+    is_new_bool = bool(is_new)
     return {
         "card_id": card_id,
         "texts": texts,
         "images": images,
         "image_filenames": image_filenames,
         "tags": tags,
-        "type": card_type,
-        "type_label": type_labels.get(card_type, f"Unknown ({card_type})"),
-        "due_display": _due_display_from_db(card_type, due_date),
+        "type_label": "New" if is_new_bool else "Review",
+        "due_display": _due_display_from_db(is_new_bool, due_date),
         "interval": interval or 0,
-        "factor_percent": (ease_factor or 2.5) * 100,
-        "reps": reps or 0,
-        "lapses": lapses or 0,
     }
 
 
-_CARDS_COLS = ("card_id, card_type, queue, due_date, interval, ease_factor,"
-               " texts_json, image_filenames_json, reps, lapses, tags_json")
+_CARDS_COLS = ("card_id, is_new, due_date, interval,"
+               " texts_json, image_filenames_json, tags_json")
 
 
 @router.post("/get_cards_by_ids")
@@ -277,11 +272,9 @@ async def get_cards_by_ids(request: Request):
                         'texts': local["texts"],
                         'images': local_images,
                         'tags': local.get("tags", []),
-                        'type': 0,
                         'type_label': 'New',
                         'due_display': 'New',
                         'interval': 0,
-                        'factor_percent': 250,
                     })
         finally:
             cards_conn.close()
@@ -331,20 +324,20 @@ async def import_deck(deck_name: str = Form(...)):
 
             due_date_obj = card.get_due_date(crt)
             due_date_str = due_date_obj.isoformat() if due_date_obj else None
-            due_display = _due_display_from_db(card.type, due_date_str)
+            is_new = 1 if card.type == 0 else 0
+            due_display = _due_display_from_db(bool(is_new), due_date_str)
 
             result = cards_conn.execute(
                 """INSERT INTO cards
-                    (card_id, card_type, queue, due_date, interval, ease_factor,
-                     texts_json, image_filenames_json, reps, lapses,
+                    (card_id, is_new, due_date, interval,
+                     texts_json, image_filenames_json,
                      is_blocking, is_blocked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                    VALUES (?, ?, ?, ?, ?, ?, 0, 0)
                     ON CONFLICT(card_id) DO NOTHING""",
                 (
-                    str(card_id), card.type, card.queue, due_date_str,
-                    card.interval, card.factor / 1000.0 if card.factor else 2.5,
+                    str(card_id), is_new, due_date_str,
+                    card.interval,
                     json.dumps(card.texts), json.dumps(card.image_filenames),
-                    card.reps, card.lapses,
                 ),
             )
             if result.rowcount == 0:
@@ -355,11 +348,9 @@ async def import_deck(deck_name: str = Form(...)):
                 "texts": card.texts,
                 "images": [f'/static/images/{os.path.basename(img)}' for img in card.images],
                 "tags": [],
-                "type": card.type,
-                "type_label": card.type_label,
+                "type_label": "New" if is_new else "Review",
                 "due_display": due_display,
                 "interval": card.interval,
-                "factor_percent": card.factor_percent,
             })
         cards_conn.commit()
     finally:
@@ -376,20 +367,19 @@ async def get_due_cards():
     cards_conn = get_cards_db_conn()
     try:
         cursor = cards_conn.execute(f"""
-            SELECT {_CARDS_COLS}, ease_factor AS ease2
+            SELECT {_CARDS_COLS}
             FROM cards
             WHERE is_blocked = 0
-              AND queue >= 0
               AND (
-                card_type = 0
-                OR (due_date IS NULL AND card_type IN (1, 3))
-                OR (due_date IS NOT NULL AND date(due_date) <= date('now', 'localtime'))
+                is_new = 1
+                OR due_date IS NULL
+                OR date(due_date) <= date('now', 'localtime')
               )
             ORDER BY
               topo_depth ASC,
               CASE
-                WHEN due_date IS NULL AND card_type IN (1, 3) THEN 0
-                WHEN due_date IS NOT NULL THEN 1
+                WHEN is_new = 0 AND due_date IS NULL THEN 0
+                WHEN is_new = 0 AND due_date IS NOT NULL THEN 1
                 ELSE 2
               END,
               due_date ASC
@@ -403,13 +393,8 @@ async def get_due_cards():
 
     cards_data = []
     for row in rows:
-        # row has 13 cols: 12 from _CARDS_COLS + ease2 (duplicate)
-        base_row = row[:12]
-        due_date = base_row[3]
-
-        card_data = _card_from_db_row(base_row, images_dir)
-        card_data["due_date"] = due_date
-
+        card_data = _card_from_db_row(row, images_dir)
+        card_data["due_date"] = row[2]
         cards_data.append(card_data)
 
     return JSONResponse({"success": True, "cards": cards_data, "total": len(cards_data)})
@@ -431,13 +416,13 @@ async def review_card_endpoint(request: Request):
     cards_conn = get_cards_db_conn()
     try:
         row = cards_conn.execute(
-            "SELECT card_type, interval, ease_factor FROM cards WHERE card_id = ?",
+            "SELECT interval FROM cards WHERE card_id = ?",
             (str(card_id),),
         ).fetchone()
         if not row:
             return JSONResponse({"success": False, "error": "Carte introuvable"}, status_code=404)
 
-        _card_type, current_interval, _ease = row
+        (current_interval,) = row
         today = date.today()
 
         if action == "failed":
@@ -451,7 +436,7 @@ async def review_card_endpoint(request: Request):
 
         cards_conn.execute(
             """UPDATE cards
-               SET card_type=2, queue=0, due_date=?, interval=?
+               SET is_new=0, due_date=?, interval=?
                WHERE card_id=?""",
             (new_due, new_interval, str(card_id)),
         )
@@ -511,7 +496,7 @@ async def reschedule_distant_cards():
         try:
             cursor = cards_conn.execute("""
                 SELECT card_id FROM cards
-                WHERE card_type = 2 AND queue >= 0
+                WHERE is_new = 0
                   AND due_date IS NOT NULL AND date(due_date) > ?
             """, (threshold,))
             to_reschedule = [row[0] for row in cursor.fetchall()]
@@ -548,7 +533,6 @@ async def get_blocking_cards():
             SELECT card_id FROM cards
             WHERE is_blocking = 1
               AND is_blocked = 0
-              AND queue >= 0
         """)
         card_ids = [row[0] for row in cursor.fetchall()]
     finally:
@@ -714,12 +698,10 @@ def _format_local_card(card_id: str, local: dict) -> dict:
         "texts": local["texts"],
         "images": images,
         "tags": local.get("tags", []),
-        "type": 0,
         "type_label": "New",
         "due": None,
         "due_display": "New",
         "interval": 0,
-        "factor_percent": 250,
     }
 
 

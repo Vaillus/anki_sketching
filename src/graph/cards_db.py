@@ -11,16 +11,12 @@ from src.utilities.paths import get_data_dir
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS cards (
     card_id TEXT PRIMARY KEY,
-    card_type INTEGER NOT NULL DEFAULT 0,
-    queue INTEGER NOT NULL DEFAULT 0,
+    is_new BOOLEAN NOT NULL DEFAULT 1,
     due_date TEXT,
     interval INTEGER NOT NULL DEFAULT 0,
-    ease_factor REAL NOT NULL DEFAULT 2.5,
     texts_json TEXT,
     image_filenames_json TEXT,
     tags_json TEXT,
-    reps INTEGER NOT NULL DEFAULT 0,
-    lapses INTEGER NOT NULL DEFAULT 0,
     is_blocking BOOLEAN NOT NULL DEFAULT 0,
     is_blocked BOOLEAN NOT NULL DEFAULT 0,
     topo_depth INTEGER NOT NULL DEFAULT 0,
@@ -82,10 +78,17 @@ def migrate_cards_db(conn: sqlite3.Connection) -> None:
 
     # Drop deprecated scalar columns (SQLite 3.35+)
     existing = {row[1] for row in conn.execute("PRAGMA table_info(cards)").fetchall()}
-    for col in ("front_text", "back_text", "image_filename", "raw_due", "locally_managed", "min_interval"):
+    for col in ("front_text", "back_text", "image_filename", "raw_due", "locally_managed", "min_interval", "queue", "ease_factor", "reps", "lapses"):
         if col in existing:
             conn.execute(f"ALTER TABLE cards DROP COLUMN {col}")
     conn.commit()
+
+    # card_type (0=new, 1/2/3=touched) → is_new (1=new, 0=touched)
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(cards)").fetchall()}
+    if "card_type" in existing and "is_new" not in existing:
+        conn.execute("ALTER TABLE cards RENAME COLUMN card_type TO is_new")
+        conn.execute("UPDATE cards SET is_new = CASE WHEN is_new = 0 THEN 1 ELSE 0 END")
+        conn.commit()
 
 
 def migrate_from_legacy() -> None:
@@ -115,19 +118,25 @@ def migrate_from_legacy() -> None:
                 ).fetchone()
                 if table_check:
                     rows = graph_conn.execute("""
-                        SELECT card_id, card_type, queue, due_date, interval,
-                               ease_factor, texts_json, image_filenames_json,
-                               reps, lapses, is_blocking, is_blocked
+                        SELECT card_id, card_type, due_date, interval,
+                               texts_json, image_filenames_json,
+                               is_blocking, is_blocked
                         FROM card_state
                     """).fetchall()
                     for row in rows:
+                        (card_id, card_type, due_date, interval,
+                         texts_json, image_filenames_json,
+                         is_blocking, is_blocked) = row
+                        is_new = 1 if card_type == 0 else 0
                         cards_conn.execute("""
                             INSERT OR IGNORE INTO cards
-                                (card_id, card_type, queue, due_date, interval,
-                                 ease_factor, texts_json, image_filenames_json,
-                                 reps, lapses, is_blocking, is_blocked)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, row)
+                                (card_id, is_new, due_date, interval,
+                                 texts_json, image_filenames_json,
+                                 is_blocking, is_blocked)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (card_id, is_new, due_date, interval,
+                              texts_json, image_filenames_json,
+                              is_blocking, is_blocked))
                     cards_conn.commit()
                     print(f"  Migrated {len(rows)} cards from graph.db card_state")
             finally:
@@ -154,8 +163,8 @@ def migrate_from_legacy() -> None:
                     # Ensure the card exists in cards table (may not have been in card_state)
                     cards_conn.execute("""
                         INSERT OR IGNORE INTO cards
-                            (card_id, card_type, queue, is_blocking, is_blocked)
-                        VALUES (?, 0, 0, 0, 0)
+                            (card_id, is_new, is_blocking, is_blocked)
+                        VALUES (?, 1, 0, 0)
                     """, (card_id,))
                     cards_conn.execute("""
                         UPDATE cards SET front_text=?, back_text=?, image_filename=?,

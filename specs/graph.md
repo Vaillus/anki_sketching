@@ -100,13 +100,11 @@ The `edges` table is wiped (`DELETE FROM edges`) and rewritten on every parse �
 
 ## Blocking
 
-A card is **blocking** if all of the following hold:
+A card is **blocking** if it is **due now** — one of:
 
-1. It is **active** — `queue` ∉ {-3, -2, -1}.
-2. It is **due now** — one of:
-   - `card_type == 0` (new — always due), or
-   - `card_type ∈ {1, 2, 3}` AND `due_date IS NULL`, or
-   - `card_type ∈ {1, 2, 3}` AND `due_date <= today`.
+- `is_new = 1` (always due), or
+- `due_date IS NULL`, or
+- `due_date <= today`.
 
 (See `graph/blocking.py::_is_blocking_row`.)
 
@@ -117,7 +115,7 @@ Both flags are computed and persisted in `cards.db.cards`. The algorithm:
 ```
 # Phase 1: per-row flag
 for each row in cards.db.cards:
-    is_blocking = compute_from(card_type, queue, due_date)
+    is_blocking = compute_from(is_new, due_date)
 
 # Phase 2: propagation
 reset is_blocked = 0 everywhere
@@ -164,7 +162,7 @@ Blocking alone (without re-parsing edges) is recomputed on `/review_card`, `/res
 |----------|----------|
 | `POST /save_positions` | Body: full `card_positions.json` payload. Writes file, then rebuilds edges + blocking + depth. |
 | `GET /load_positions` | Returns the parsed JSON. |
-| `GET /blocking_cards` | Returns `{card_ids: [...]}` of cards that are `is_blocking=1 AND is_blocked=0 AND queue>=0` — the ones to highlight on the canvas. |
+| `GET /blocking_cards` | Returns `{card_ids: [...]}` of cards that are `is_blocking=1 AND is_blocked=0` — the ones to highlight on the canvas. |
 | `GET /due_cards` | Returns unblocked due cards, ordered by `topo_depth` then due-date. See [review.md](./review.md#due-cards-query). |
 | `GET /practice/card/{id}/context` | Returns the card plus its immediate parents and children (one-hop only). Used by the practice page's right panel. |
 
@@ -172,7 +170,7 @@ Blocking alone (without re-parsing edges) is recomputed on `/review_card`, `/res
 
 - How the user draws arrows and groups on the canvas → [canvas.md](./canvas.md#arrows-and-groups).
 - How blocking surfaces in the editor view (highlight) and practice view (filter) → those pages' specs.
-- What changes `card_type`/`due_date` → [review.md](./review.md#scheduling-update) and [anki-sync.md](./anki-sync.md#import).
+- What changes `is_new`/`due_date` → [review.md](./review.md#scheduling-update) and [anki-sync.md](./anki-sync.md#import).
 
 ## Open questions
 

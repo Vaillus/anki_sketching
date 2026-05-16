@@ -78,23 +78,26 @@ Backend (`api/routes.py::import_deck`):
             → For type=2: today + (due - days_since_crt)
             → For type=1/3: timestamp interpreted as Unix seconds
      c. INSERT INTO cards.db.cards (...) ON CONFLICT(card_id) DO NOTHING
-            → card_type, queue, due_date, interval, ease_factor,
-              texts_json, image_filenames_json, reps, lapses
+            → is_new (1 if Anki type == 0 else 0), due_date, interval,
+              texts_json, image_filenames_json
             → is_blocking=0, is_blocked=0
             → tags_json is left NULL (handled as `[]` at read time)
+            → Anki's `queue`, `factor`, `reps`, `lapses` are discarded:
+              this app has no suspend concept and runs its own simple
+              Failed/Maintain/Change scheduler that doesn't use them.
      d. If a row was actually inserted (rowcount > 0), append it to the
         response so the frontend places it on the canvas. Pre-existing
         rows are skipped silently.
 7. Return list of newly-inserted cards.
 ```
 
-**Import is insert-only**: cards already present in `cards.db` are left entirely untouched — scheduling, content (`texts_json`, `image_filenames_json`), tags, `min_interval`, and computed graph state all survive a re-import unchanged. Only brand-new card IDs from Anki get inserted (and returned to the frontend for canvas placement).
+**Import is insert-only**: cards already present in `cards.db` are left entirely untouched — scheduling, content (`texts_json`, `image_filenames_json`), tags, and computed graph state all survive a re-import unchanged. Only brand-new card IDs from Anki get inserted (and returned to the frontend for canvas placement).
 
 The `Card` class in `src/anki_interface/card.py` is the workhorse that translates AnkiConnect's `cardsInfo` response into typed fields. See its module docstring for the field-by-field mapping.
 
 ## CRT
 
-The **CRT (collection creation time)** is a Unix timestamp recorded when an Anki user first created their collection. It's needed because Anki's `due` field for review cards (`card_type=2`) is encoded as "days since CRT," not as a real date.
+The **CRT (collection creation time)** is a Unix timestamp recorded when an Anki user first created their collection. It's needed because Anki's `due` field for review cards (Anki `type=2`) is encoded as "days since CRT," not as a real date.
 
 AnkiConnect **does not expose** the CRT. So we read it directly from the SQLite file:
 
@@ -177,7 +180,7 @@ The `local_` prefix lets the gitignore rule (`!local_*`) keep them tracked in gi
 |--------------------|-------|---------|
 | `deckNames` | `get_all_decks.py`, `anki_status` endpoint | List decks + ping for connectivity check |
 | `findCards` (with `deck:<name>`) | `get_cards_ids.py` | Get all card IDs in a deck |
-| `cardsInfo` | `Card.__init__` | Fetch type, queue, due, interval, factor, fields, reps, lapses |
+| `cardsInfo` | `Card.__init__` | Fetch type (used to derive `is_new`), due, interval, fields |
 | `retrieveMediaFile` | `Card._download_images` | Base64-fetch a media file by filename |
 
 All wrapped by `src/anki_interface/utils.py::anki_request(action, **params)` which:
