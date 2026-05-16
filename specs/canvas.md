@@ -12,10 +12,9 @@ The canvas state is auto-saved (positions, groups, arrows, pan/zoom) and is the 
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  [Practice →]  Editor                          [Anki: ●]     │ editor-header
+│  [Practice →]  Editor                                ● Anki  │ editor-header
 ├──────────────────────────────────────────────────────────────┤
-│  Deck dropdown ▾  [Import]                                   │ toolbar
-│  [💾 Save]  [🗑 Clear]  [📅 Désapprendre lointaines]          │
+│  [💾 Save]  [🗑 Clear]  [📅 Désapprendre lointaines]          │ toolbar
 │                                                              │
 │  [+] 100% [−] [Reset]                          Move/Select   │ zoom-controls + mode-indicator
 │                                                              │
@@ -28,12 +27,20 @@ The canvas state is auto-saved (positions, groups, arrows, pan/zoom) and is the 
 │  Position: x, y  |  Zoom: 100%                               │ info-panel (bottom)
 └──────────────────────────────────────────────────────────────┘
 
+  (Anki popover — appears under the header dot when clicked:)
+  ┌──────────────────────────────┐
+  │ Choisir un paquet ▾          │
+  │ [Importer]                   │
+  └──────────────────────────────┘
+
   (Floating, when ≥1 card selected:)
   ┌──────────────────────────────────────────┐
   │ N selected · [🔗 Group] [❌ Deselect]    │ selection-toolbar
   │ Tags: [tag1] [tag2] ... [+ tag input]   │
   └──────────────────────────────────────────┘
 ```
+
+The Anki integration is **optional and non-central** — cards can be authored directly in the editor — so its UI is tucked behind a single status dot in the header (`#anki-status`). Clicking the dot toggles `#anki-popover`, which contains the deck dropdown and the Import button. Outside-click closes the popover. See [anki-sync.md](./anki-sync.md#import) for the import flow itself.
 
 Template: `frontend/templates/index.html`.
 Styles: `frontend/static/css/app.css`.

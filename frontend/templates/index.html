@@ -16,13 +16,14 @@
     <div id="editor-header">
         <a href="/practice" id="nav-practice-btn">Practice →</a>
         <h1>Editor</h1>
+        <button id="anki-status" type="button" title="Vérification…" aria-haspopup="true" aria-expanded="false">
+            <span id="anki-status-dot"></span>
+            <span id="anki-status-label">Anki</span>
+        </button>
     </div>
 
-    <div id="toolbar">
-        <div id="anki-status">
-            <span id="anki-status-dot"></span>
-            <span id="anki-status-label">Vérification…</span>
-        </div>
+    <div id="anki-popover" hidden>
+        <div id="anki-popover-status">Vérification…</div>
         <form id="import-form">
             <select id="deck-name" name="deck_name" required>
                 <option value="" disabled selected>Choisir un paquet</option>
@@ -32,11 +33,12 @@
             </select>
             <button type="submit">Importer</button>
         </form>
-        <div style="margin-top: 10px;">
-            <button id="save-positions" type="button">💾 Sauvegarder positions</button>
-            <button id="clear-canvas" type="button" style="margin-left: 10px;">🗑️ Vider le canvas</button>
-            <button id="reschedule-distant" type="button" style="margin-left: 10px;">📅 Désapprendre lointaines</button>
-        </div>
+    </div>
+
+    <div id="toolbar">
+        <button id="save-positions" type="button">💾 Sauvegarder positions</button>
+        <button id="clear-canvas" type="button" style="margin-left: 10px;">🗑️ Vider le canvas</button>
+        <button id="reschedule-distant" type="button" style="margin-left: 10px;">📅 Désapprendre lointaines</button>
     </div>
 
     <div id="zoom-controls">

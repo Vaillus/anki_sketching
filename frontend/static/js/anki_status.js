@@ -8,11 +8,24 @@ async function checkAnkiStatus() {
         const connected = data.connected;
 
         const statusEl = document.getElementById('anki-status');
-        const labelEl = document.getElementById('anki-status-label');
+        const popoverEl = document.getElementById('anki-popover');
+        const popoverStatusEl = document.getElementById('anki-popover-status');
         const importBtn = document.querySelector('#import-form button[type="submit"]');
 
-        statusEl.className = connected ? 'connected' : 'disconnected';
-        labelEl.textContent = connected ? 'Anki connecté' : 'Anki non connecté — lancez Anki avec AnkiConnect';
+        const stateClass = connected ? 'connected' : 'disconnected';
+        const statusText = connected
+            ? 'Anki connecté'
+            : 'Anki non connecté — lancez Anki avec AnkiConnect';
+
+        statusEl.classList.remove('connected', 'disconnected');
+        statusEl.classList.add(stateClass);
+        statusEl.setAttribute('title', statusText);
+
+        if (popoverEl) {
+            popoverEl.classList.remove('connected', 'disconnected');
+            popoverEl.classList.add(stateClass);
+        }
+        if (popoverStatusEl) popoverStatusEl.textContent = statusText;
         if (importBtn) importBtn.disabled = !connected;
 
         // If Anki just came online, reload the deck list

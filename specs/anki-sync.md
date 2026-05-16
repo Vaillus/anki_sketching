@@ -33,9 +33,12 @@ Backend (`api/routes.py::anki_status`) calls `anki_request('deckNames')` and rep
 Frontend behavior:
 
 - `.connected` / `.disconnected` class on `#anki-status` (dot color).
-- Label text updates ("Anki connecté" / "Anki non connecté — lancez Anki avec AnkiConnect").
+- The dot lives on the right side of `#editor-header`. It doubles as a button: clicking it toggles `#anki-popover`, which contains the deck dropdown and the Import button. Outside-click closes the popover.
+- The dot's `title` attribute carries the status text ("Anki connecté" / "Anki non connecté — lancez Anki avec AnkiConnect"). The same text is also shown inside the popover.
 - Import button is disabled when disconnected.
 - **On the false → true transition, the page reloads.** This is so the deck dropdown (rendered server-side in `editor/routes.py`) picks up the now-available deck list.
+
+This placement reflects that Anki is **optional** in this app — cards can be authored directly in the editor, so the import UI should not occupy permanent screen real estate.
 
 ## Deck listing
 

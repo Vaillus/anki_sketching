@@ -438,11 +438,22 @@ body {
 /* ===== Anki connection status ===== */
 
 #anki-status {
-    display: flex;
+    margin-left: auto;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 8px;
+    padding: 4px 10px;
     font-size: 12px;
+    color: #b4a8ff;
+    background: transparent;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#anki-status:hover {
+    background: #34257a;
+    border-color: #5a4aaa;
 }
 
 #anki-status-dot {
@@ -455,8 +466,40 @@ body {
 
 #anki-status.connected #anki-status-dot { background: #4CAF50; }
 #anki-status.disconnected #anki-status-dot { background: #f44336; }
-#anki-status.connected #anki-status-label { color: #a5d6a7; }
-#anki-status.disconnected #anki-status-label { color: #ef9a9a; }
+
+#anki-popover {
+    position: fixed;
+    top: 52px;
+    right: 10px;
+    z-index: 10002;
+    background: #2b1f6b;
+    border: 1px solid #3a2b86;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    padding: 12px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#anki-popover[hidden] {
+    display: none;
+}
+
+#anki-popover-status {
+    font-size: 12px;
+    color: #b4a8ff;
+}
+
+#anki-popover.connected #anki-popover-status { color: #a5d6a7; }
+#anki-popover.disconnected #anki-popover-status { color: #ef9a9a; }
+
+#anki-popover #import-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
 
 /* ===== Canvas context menu ===== */
 

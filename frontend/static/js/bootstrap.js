@@ -9,6 +9,31 @@ document.getElementById('import-form').addEventListener('submit', function(event
     importDeck(deckName);
 });
 
+// Popover Anki: toggle au clic sur le dot, fermeture au clic extérieur
+(function setupAnkiPopover() {
+    const btn = document.getElementById('anki-status');
+    const popover = document.getElementById('anki-popover');
+    if (!btn || !popover) return;
+
+    function setOpen(open) {
+        popover.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(popover.hidden);
+    });
+
+    popover.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener('click', () => {
+        if (!popover.hidden) setOpen(false);
+    });
+})();
+
 // Gestionnaire pour le bouton de sauvegarde
 document.getElementById('save-positions').addEventListener('click', saveCardPositions);
 
