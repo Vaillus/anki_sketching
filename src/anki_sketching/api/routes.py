@@ -676,6 +676,41 @@ async def upload_image(file: UploadFile = File(...)):
     })
 
 
+_UPLOADABLE_DATA_FILES = {"cards.db", "graph.db", "card_positions.json"}
+
+
+@router.post("/admin/upload_data_file")
+async def upload_data_file(file: UploadFile = File(...)):
+    """Remplace un fichier seed dans DATA_DIR (cards.db, graph.db, card_positions.json).
+
+    Outil de synchronisation Mac → volume Railway, sans passer par git. Protégé
+    par le middleware Basic Auth (APP_PASSWORD). L'écriture est atomique via
+    .upload + rename. Les nouvelles requêtes ouvrent une connexion fraîche et
+    voient immédiatement le contenu mis à jour ; pas besoin de redéployer.
+    """
+    filename = os.path.basename(file.filename or "")
+    if filename not in _UPLOADABLE_DATA_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"filename doit être l'un de {sorted(_UPLOADABLE_DATA_FILES)}",
+        )
+
+    data_dir = get_data_dir()
+    target = data_dir / filename
+    tmp = data_dir / f"{filename}.upload"
+
+    content = await file.read()
+    with open(tmp, "wb") as f:
+        f.write(content)
+    os.replace(tmp, target)
+
+    return JSONResponse({
+        "success": True,
+        "filename": filename,
+        "size": target.stat().st_size,
+    })
+
+
 @router.post("/delete_local_card")
 async def delete_local_card_endpoint(request: Request):
     """Supprime une carte locale."""
