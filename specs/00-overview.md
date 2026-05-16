@@ -16,9 +16,9 @@ The app owns exercise content, the graph, and scheduling. Anki integration is op
 Two surfaces, one backing store:
 
 - **`/editor`** — the editor canvas. Position exercises, draw prerequisite arrows, group, tag, create new exercises. See [canvas.md](./canvas.md). (`/` redirects here.)
-- **`/practice`** — the practice dashboard. Pick a due exercise, see its parents/children, answer it. See [review.md](./review.md).
+- **`/practice`** — the practice dashboard. Pick a due exercise, see its parents/children, answer it. See [review.md](./review.md). Phone-width devices get a stripped-down drilldown layout — see [mobile.md](./mobile.md).
 
-Both pages read from the same backing store (`cards.db` + `graph.db` + `card_positions.json`). Any change on one side is reflected on the other after a reload (or a `loadDueCards()` refresh).
+Both pages read from the same backing store (`cards.db` + `graph.db` + `card_positions.json`). Any change on one side is reflected on the other after a reload.
 
 ## Architecture
 

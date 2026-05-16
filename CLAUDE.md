@@ -17,7 +17,7 @@ Concrete rules:
 - **A new feature starts as a spec change.** If the change doesn't fit cleanly into an existing spec, propose a new spec file before writing code.
 - **Don't duplicate spec content here.** Architecture details, schemas, endpoints, module roles — all live in specs. CLAUDE.md only carries workflow rules and ambient project facts.
 
-Start with [`specs/00-overview.md`](specs/00-overview.md). Each subsequent spec is concept-oriented (cards, graph, canvas, review, tags, anki-sync).
+Start with [`specs/00-overview.md`](specs/00-overview.md). Each subsequent spec is concept-oriented (cards, graph, canvas, review, tags, anki-sync, mobile).
 
 ## Commands
 

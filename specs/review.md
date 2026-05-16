@@ -1,14 +1,12 @@
 # Review
 
-> Two review surfaces: the practice page (`/practice`) and the reviewer modal on the editor page. Both share the scheduling rules.
+> Reviews happen on the practice page (`/practice`).
 
 ## Purpose
 
 When a user wants to do a review session, they go to **`/practice`**. It shows the cards that are *actually reviewable right now* — due today, **and not blocked by an unlearned prerequisite** ([graph.md](./graph.md#blocking)).
 
 For each card, the practice page also shows its immediate parents and children, so the user reviews the card *in context*. This is the main reason this app exists rather than using Anki directly.
-
-The editor page also has a smaller **reviewer modal**: clicking a chip in the bottom "À réviser" bar opens it. Same scheduling rules, smaller surface.
 
 ## Scheduling model
 
@@ -38,6 +36,8 @@ There is also a separate SM-2 implementation at `src/graph/srs.py` (ported from 
 ## The practice page
 
 Template: `frontend/templates/practice.html`. JS: `frontend/static/js/practice/main.js` (single self-contained module). Styles: `frontend/static/css/practice.css`.
+
+On phone-width devices, this page renders as a drilldown stack instead of side-by-side — see [mobile.md](./mobile.md).
 
 ### Layout
 
@@ -148,19 +148,6 @@ After `POST /review_card`:
 
 The card's tile disappears from the grid (because the next-due-date is now in the future), and any newly-unblocked descendants appear (because `compute_blocking_states` was called server-side).
 
-## The reviewer modal (editor page)
-
-`frontend/static/js/reviewer.js`. Same ease buttons, same keyboard shortcuts, same `/review_card` endpoint as the practice page. Differences:
-
-| Aspect | Reviewer modal | Practice page |
-|--------|----------------|---------------|
-| Surface | Modal overlay (`#reviewer-backdrop`) | Full page |
-| Context (parents/children) | **None** | Shown around the card |
-| Trigger | Click a chip in the bottom `#due-cards-bar` | Click a card in the grid |
-| After answer | Closes modal, refreshes the chip's due display + the due-cards bar | Stays open, refreshes the grid |
-
-The modal also re-runs `applyBlockingHighlights()` on the editor canvas after a successful answer.
-
 ## Due cards query
 
 `GET /due_cards` returns the queue. The query is in `api/routes.py::get_due_cards`:
@@ -204,16 +191,13 @@ These are workflow tools for "I haven't been doing reviews for a while, snap eve
 
 ## What this spec does not cover
 
-- The reviewer modal UI structure in detail — see the source of `reviewer.js` for now.
-- How the due-cards bar on the editor page is rendered → [canvas.md](./canvas.md#layout) (the bar itself).
 - How blocking gates the queue → [graph.md](./graph.md#blocking).
 - Tag filtering details → [tags.md](./tags.md).
 
 ## Open questions
 
-- **No "show answer" step.** Both the modal and the practice page show front + back simultaneously. Worth adding a reveal step for genuine self-testing.
+- **No "show answer" step.** The practice page shows front + back simultaneously. Worth adding a reveal step for genuine self-testing.
 - **SM-2 module is dead code.** `src/graph/srs.py` is fully implemented (Again/Hard/Good/Easy with ease-factor updates and fuzz) but never imported. Kept as reference material on how SM-2 works.
 - **No batch review.** Cards are reviewed one at a time. There's no "session" notion (count, progress, time spent).
 - **No "skip" or "snooze".** The only way out of a card is to answer it.
-- **Reviewer modal duplicates practice ease-button logic.** Refactor candidate: extract the ease-controls UI into a shared component.
 - **Practice page does not refresh blocking highlights on the canvas** when navigated away (but the canvas reloads from scratch on navigation anyway).

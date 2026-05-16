@@ -266,6 +266,11 @@ function selectCard(cardId) {
     if (el) el.classList.add('selected');
 
     loadContext(cardId);
+    setView('card');
+}
+
+function setView(view) {
+    document.body.dataset.view = view;
 }
 
 async function loadContext(cardId) {
@@ -634,6 +639,7 @@ async function submitAnswer(action, interval) {
         selectedCardId = null;
         const right = document.getElementById('practice-right');
         right.innerHTML = 'Sélectionne une carte';
+        setView('grid');
     }
 }
 
@@ -684,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDueCards();
     loadAllTagsPractice();
     document.getElementById('practice-refresh').addEventListener('click', loadDueCards);
+    document.getElementById('practice-back-btn').addEventListener('click', () => setView('grid'));
 
     // Redraw connectors on resize
     window.addEventListener('resize', () => {

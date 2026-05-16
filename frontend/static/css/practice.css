@@ -705,3 +705,61 @@ body {
     white-space: nowrap;
     line-height: 1.4;
 }
+
+/* ===== Back button (phone only) ===== */
+
+#practice-back-btn {
+    display: none;
+    background: none;
+    color: #b4a8ff;
+    border: 1px solid #3a2b86;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+#practice-back-btn:hover {
+    background: #34257a;
+    border-color: #5a4aaa;
+}
+
+/* ===== Phone layout (≤ 600px) ===== */
+
+@media (max-width: 600px) {
+    /* Header: hide ← Editor; reveal ← Back only in card view */
+    #nav-editor-btn { display: none; }
+    body[data-view="card"] #practice-back-btn { display: inline-flex; }
+
+    /* Left/right exclusivity, each full-width when shown */
+    body[data-view="grid"] #practice-right { display: none; }
+    body[data-view="card"] #practice-left  { display: none; }
+
+    #practice-left,
+    #practice-right {
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+    }
+
+    /* Drop parents/children context entirely */
+    .context-bar { display: none; }
+    .connector-svg { display: none; }
+
+    /* Current-card-row: collapse 3-col grid to single column */
+    .current-card-row {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .ease-column-spacer { display: none; }
+    .context-current-card {
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Ease buttons: stacked, full-width, ≥44px tap target */
+    .ease-column { width: 100%; min-width: 0; }
+    .lr-ease-buttons { width: 100%; }
+    .ease-btn { min-height: 44px; width: 100%; }
+}
