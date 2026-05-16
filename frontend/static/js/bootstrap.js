@@ -1,6 +1,5 @@
 function refreshState() {
     applyBlockingHighlights();
-    loadDueCards();
 }
 
 // Gestion du formulaire d'import

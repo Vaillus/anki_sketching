@@ -26,10 +26,6 @@ The canvas state is auto-saved (positions, groups, arrows, pan/zoom) and is the 
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
 │  Position: x, y  |  Zoom: 100%                               │ info-panel (bottom)
-│                                                              │
-│  ┌─ À réviser (N) ────────────────────────────────────[↺]─┐  │ due-cards-bar
-│  │ [card chip] [card chip] [card chip] ...               │  │
-│  └────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 
   (Floating, when ≥1 card selected:)
@@ -59,9 +55,7 @@ All loaded as `<script>` tags from `index.html`, in this order (order matters �
 | `cards.js` | `importDeck()`, `makeDraggable()`, card rendering (badges, fields, images, tags). |
 | `local_cards.js` | Canvas right-click menu → "Nouvelle carte". Modal for create/edit, image upload, tag input with autocomplete. |
 | `bootstrap.js` | Event listeners: form submit, toolbar buttons, context menu items, keyboard shortcuts. Triggers `loadAllSavedCardsOnStartup()` on `window.load`. |
-| `due_cards.js` | Fetches `/due_cards`, renders chips in the bottom bar, clicks open the reviewer modal. |
 | `anki_status.js` | Polls `/anki_status` every 5s, updates the status indicator, **reloads the page** when Anki transitions from disconnected → connected (so the deck dropdown refills). |
-| `reviewer.js` | Modal review on the editor page itself (not the practice page). Same ease buttons as practice. See [review.md](./review.md#reviewer-modal). |
 
 State lives in module-global `let`/`Map`/`Set` declarations in `globals.js` and selected modules. No framework, no reactivity — DOM is mutated directly.
 
@@ -228,9 +222,7 @@ window.onload:
      └─ apply blocking highlights (GET /blocking_cards)
   2. loadAllTags()                      (globals.js)
      └─ GET /all_tags
-  3. loadDueCards()                     (due_cards.js, DOMContentLoaded)
-     └─ GET /due_cards
-  4. checkAnkiStatus() then poll every 5s   (anki_status.js)
+  3. checkAnkiStatus() then poll every 5s   (anki_status.js)
      └─ GET /anki_status
 ```
 
@@ -256,7 +248,6 @@ window.onload:
 
 - The graph data model (edges, group expansion, blocking propagation) → [graph.md](./graph.md).
 - The card data model (fields, IDs, schema) → [cards.md](./cards.md).
-- The bottom "due cards" bar's clicking-a-chip behavior (opens the reviewer modal) → [review.md](./review.md#reviewer-modal).
 - Tag management details → [tags.md](./tags.md).
 - The Anki connection indicator's polling and auto-reload → [anki-sync.md](./anki-sync.md#status-polling).
 

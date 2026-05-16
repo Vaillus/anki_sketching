@@ -100,7 +100,6 @@ function saveCardPositions(options) {
         if (data.success) {
             if (!silent) alert('✅ Positions, groupes et flèches sauvegardés !');
             applyBlockingHighlights();
-            loadDueCards();
         } else {
             if (!silent) alert('❌ Erreur lors de la sauvegarde: ' + data.error);
             else console.error('Erreur lors de la sauvegarde:', data.error);

@@ -323,7 +323,6 @@
         }
 
         closeLocalCardModal();
-        if (typeof loadDueCards === 'function') loadDueCards();
     });
 
     // Delete
@@ -352,7 +351,6 @@
         }
 
         closeLocalCardModal();
-        if (typeof loadDueCards === 'function') loadDueCards();
     });
 
     // Keyboard
