@@ -34,3 +34,19 @@ def seed_data_dir() -> None:
             continue
         shutil.copy2(source, target)
         print(f"[seed] copied {source} -> {target}")
+
+    # Seed les images de cartes commitées (local_*.png) vers le volume.
+    # Les fichiers déjà présents ne sont jamais écrasés.
+    source_images = source_dir / "images"
+    if not source_images.is_dir():
+        return
+    target_images = target_dir / "images"
+    target_images.mkdir(parents=True, exist_ok=True)
+    for src in source_images.iterdir():
+        if not src.is_file():
+            continue
+        dest = target_images / src.name
+        if dest.exists():
+            continue
+        shutil.copy2(src, dest)
+        print(f"[seed] copied {src} -> {dest}")

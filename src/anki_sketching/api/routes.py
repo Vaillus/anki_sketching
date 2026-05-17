@@ -677,6 +677,7 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 _UPLOADABLE_DATA_FILES = {"cards.db", "graph.db", "card_positions.json"}
+_UPLOADABLE_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 
 @router.post("/admin/upload_data_file")
@@ -708,6 +709,40 @@ async def upload_data_file(file: UploadFile = File(...)):
         "success": True,
         "filename": filename,
         "size": target.stat().st_size,
+    })
+
+
+@router.post("/admin/upload_image_file")
+async def upload_image_file(file: UploadFile = File(...)):
+    """Pousse une image vers <DATA_DIR>/images/ (sync Mac → volume).
+
+    Préserve le nom de fichier (basename uniquement, pas de path traversal).
+    Allowlist d'extensions. Protégé par Basic Auth comme tout le reste.
+    """
+    filename = os.path.basename(file.filename or "")
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename manquant")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in _UPLOADABLE_IMAGE_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"extension {ext!r} non autorisée (attendu : {sorted(_UPLOADABLE_IMAGE_EXTS)})",
+        )
+
+    images_dir = get_images_dir()
+    target = images_dir / filename
+    tmp = images_dir / f"{filename}.upload"
+
+    content = await file.read()
+    with open(tmp, "wb") as f:
+        f.write(content)
+    os.replace(tmp, target)
+
+    return JSONResponse({
+        "success": True,
+        "filename": filename,
+        "size": target.stat().st_size,
+        "path": f"/static/images/{filename}",
     })
 
 

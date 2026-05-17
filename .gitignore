@@ -11,7 +11,7 @@
 *.heif
 
 # Local card images (created from canvas) must be tracked for multi-machine sync
-!frontend/static/images/local_*
+!data/images/local_*
 
 *.pyc
 node_modules/

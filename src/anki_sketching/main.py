@@ -18,7 +18,7 @@ from src.anki_sketching.practice import routes as practice_routes
 from src.anki_sketching.seed import seed_data_dir
 from src.graph.cards_db import migrate_from_legacy, get_cards_db_conn, migrate_cards_db
 from src.graph.schema import migrate_db
-from src.utilities.paths import get_data_dir
+from src.utilities.paths import get_data_dir, get_images_dir
 
 
 def get_project_root() -> Path:
@@ -59,7 +59,11 @@ async def basic_auth_middleware(request: Request, call_next):
         headers={"WWW-Authenticate": 'Basic realm="anki-sketching"'},
     )
 
-# Monte les fichiers statiques
+# Monte les fichiers statiques. /static/images doit être enregistré avant /static
+# pour que les images (sur le volume) court-circuitent le mount général (sur l'image).
+images_dir = get_images_dir()
+app.mount("/static/images", StaticFiles(directory=str(images_dir)), name="images")
+
 static_dir = get_project_root() / 'frontend' / 'static'
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 

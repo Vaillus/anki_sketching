@@ -46,12 +46,17 @@ def get_positions_file() -> Path:
 
 def get_images_dir() -> Path:
     """
-    Retourne le chemin vers le dossier des images statiques.
-    
+    Retourne le chemin vers le dossier des images de cartes.
+
+    Vit sous DATA_DIR pour être persisté avec le reste des données
+    utilisateur (cards.db, graph.db, card_positions.json).
+
     Returns:
-        Path: Chemin vers frontend/static/images/
+        Path: Chemin vers <data_dir>/images/
     """
-    return get_project_root() / 'frontend' / 'static' / 'images'
+    images_dir = get_data_dir() / "images"
+    ensure_dir_exists(images_dir)
+    return images_dir
 
 
 def ensure_dir_exists(directory: Union[Path, str]) -> None:
