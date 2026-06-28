@@ -3,12 +3,15 @@ Routes API pour Anki Sketching.
 Gère toutes les routes API qui retournent du JSON.
 """
 from fastapi import APIRouter, Request, Form, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import json
 import os
+import shutil
 import sqlite3
 import uuid
 from datetime import date, datetime, timedelta
+
+import requests
 
 from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki_request
 from src.anki_interface.get_cards_ids import get_cards_ids
@@ -743,6 +746,128 @@ async def upload_image_file(file: UploadFile = File(...)):
         "filename": filename,
         "size": target.stat().st_size,
         "path": f"/static/images/{filename}",
+    })
+
+
+# ── Sync prod → Mac ─────────────────────────────────────────────────────────
+#
+# Served side (prod) exposes download_data_file + list_images. The local
+# instance calls sync_from_prod, which pulls from PROD_URL and overwrites
+# ./data. See specs/deployment.md.
+
+DEFAULT_PROD_URL = "https://web-production-e02fd.up.railway.app"
+
+
+@router.get("/admin/download_data_file")
+async def download_data_file(name: str):
+    """Renvoie un fichier de données du volume (miroir de upload_data_file).
+
+    Allowlist stricte (cards.db / graph.db / card_positions.json). Protégé par
+    le middleware Basic Auth. Utilisé par sync_from_prod côté local.
+    """
+    if name not in _UPLOADABLE_DATA_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"name doit être l'un de {sorted(_UPLOADABLE_DATA_FILES)}",
+        )
+    path = get_data_dir() / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"{name} introuvable")
+    return FileResponse(
+        str(path), filename=name, media_type="application/octet-stream"
+    )
+
+
+@router.get("/admin/list_images")
+async def list_images():
+    """Liste les noms d'images du volume (pour que sync_from_prod sache quoi tirer)."""
+    images_dir = get_images_dir()
+    names = sorted(
+        f.name
+        for f in images_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in _UPLOADABLE_IMAGE_EXTS
+    )
+    return JSONResponse({"images": names})
+
+
+@router.post("/admin/sync_from_prod")
+async def sync_from_prod():
+    """Tire la base distante (prod) et écrase la base locale.
+
+    Tourne sur l'instance LOCALE. Télécharge les 3 fichiers de données + toutes
+    les images depuis PROD_URL (auth via PROD_PASSWORD), avec backup des fichiers
+    locaux dans .sync_backup/ avant écrasement atomique. N'efface pas les images
+    locales absentes de la prod (add/overwrite uniquement).
+    """
+    global _cached_crt
+
+    prod_url = (os.environ.get("PROD_URL") or DEFAULT_PROD_URL).rstrip("/")
+    password = os.environ.get("PROD_PASSWORD")
+    auth = ("x", password) if password else None
+
+    data_dir = get_data_dir()
+    images_dir = get_images_dir()
+    backup_dir = data_dir / ".sync_backup"
+    tmp_files: list = []
+
+    try:
+        # 1. Télécharger les 3 fichiers de données dans des temp.
+        staged = []  # (tmp_path, target_path)
+        for name in sorted(_UPLOADABLE_DATA_FILES):
+            resp = requests.get(
+                f"{prod_url}/admin/download_data_file",
+                params={"name": name},
+                auth=auth,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            tmp = data_dir / f"{name}.download"
+            tmp.write_bytes(resp.content)
+            tmp_files.append(tmp)
+            staged.append((tmp, data_dir / name))
+
+        # 2. Backup des fichiers locaux actuels, puis 3. swap atomique.
+        ensure_dir_exists(backup_dir)
+        for _, target in staged:
+            if target.exists():
+                shutil.copy2(target, backup_dir / target.name)
+        for tmp, target in staged:
+            os.replace(tmp, target)
+        tmp_files = []
+
+        # 4. Images : lister puis télécharger chacune (add/overwrite).
+        list_resp = requests.get(
+            f"{prod_url}/admin/list_images", auth=auth, timeout=60
+        )
+        list_resp.raise_for_status()
+        image_names = list_resp.json().get("images", [])
+
+        images_synced = 0
+        for img in image_names:
+            img_resp = requests.get(
+                f"{prod_url}/static/images/{img}", auth=auth, timeout=120
+            )
+            if img_resp.status_code != 200:
+                continue
+            tmp = images_dir / f"{img}.download"
+            tmp.write_bytes(img_resp.content)
+            os.replace(tmp, images_dir / img)
+            images_synced += 1
+    except requests.RequestException as e:
+        for tmp in tmp_files:
+            tmp.unlink(missing_ok=True)
+        return JSONResponse(
+            {"success": False, "error": f"Échec sync depuis {prod_url} : {e}"},
+            status_code=502,
+        )
+
+    # 5. graph.db a changé : invalide le cache crt.
+    _cached_crt = None
+
+    return JSONResponse({
+        "success": True,
+        "data_files": sorted(_UPLOADABLE_DATA_FILES),
+        "images": images_synced,
     })
 
 

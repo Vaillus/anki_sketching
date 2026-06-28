@@ -37,6 +37,31 @@ document.getElementById('import-form').addEventListener('submit', function(event
 // Gestionnaire pour le bouton de sauvegarde
 document.getElementById('save-positions').addEventListener('click', saveCardPositions);
 
+// Gestionnaire pour le bouton "Sync depuis la prod" (écrase la base locale)
+document.getElementById('sync-from-prod').addEventListener('click', async function() {
+    if (!confirm('Écraser la base locale avec celle de la prod ?\n\nLes 3 fichiers de données et les images distantes seront récupérés. Une sauvegarde de la base locale est faite dans data/.sync_backup/.')) return;
+    const btn = this;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Sync en cours…';
+    try {
+        const res = await fetch('/admin/sync_from_prod', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(`Sync réussie : ${data.data_files.length} fichier(s) de données + ${data.images} image(s).\nLa page va se recharger.`);
+            location.reload();
+        } else {
+            alert('Erreur : ' + (data.error || 'inconnue'));
+            btn.disabled = false;
+            btn.textContent = original;
+        }
+    } catch (e) {
+        alert('Erreur réseau : ' + e.message);
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+});
+
 // Gestionnaire pour le bouton désapprendre lointaines
 document.getElementById('reschedule-distant').addEventListener('click', async function() {
     if (!confirm('Ramener à aujourd\'hui toutes les cartes dues dans plus de 5 jours ?')) return;

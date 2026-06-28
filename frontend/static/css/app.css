@@ -501,6 +501,20 @@ body {
     gap: 6px;
 }
 
+#sync-from-prod {
+    width: 100%;
+    padding: 6px 10px;
+    border-top: 1px solid #3a2b86;
+    padding-top: 10px;
+    margin-top: 2px;
+    cursor: pointer;
+}
+
+#sync-from-prod:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
 /* ===== Canvas context menu ===== */
 
 #canvas-context-menu {

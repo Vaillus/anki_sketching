@@ -18,6 +18,9 @@ node_modules/
 
 .DS_Store
 
+# Secrets / local env (prod credentials live here — never commit)
+.env
+
 # User data (ignore JSON files but keep folder structure)
 data/*.json
 

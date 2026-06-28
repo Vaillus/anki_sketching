@@ -24,6 +24,10 @@ Both are documented in `.env.example`. Locally both are unset; on Railway both a
 |---|---|---|
 | `DATA_DIR` | Absolute path where `cards.db`, `graph.db`, `card_positions.json`, and `images/` live. Set to the mounted volume path (`/data`) in prod. | Falls back to `<project_root>/data` (`get_data_dir()` in `src/utilities/paths.py`). |
 | `APP_PASSWORD` | Single shared password for HTTP Basic Auth. | Auth middleware is a no-op — the app is fully open (fine for local dev). |
+| `PROD_URL` | Base URL the **local** instance pulls from during prod → Mac sync. | Defaults to the known Railway URL (`DEFAULT_PROD_URL` in `routes.py`). |
+| `PROD_PASSWORD` | Password the local instance sends as Basic Auth when pulling from prod. **Same value** as prod's `APP_PASSWORD`. Only set this **locally** — never name it `APP_PASSWORD` locally or you'd switch on the local auth middleware. | Sync calls hit prod unauthenticated and get 401. |
+
+`PROD_URL` / `PROD_PASSWORD` live in a gitignored `.env` at the repo root, loaded at startup by `load_dotenv()` in `main.py` (dependency: `python-dotenv`).
 
 ### Auth model
 
@@ -58,7 +62,7 @@ The "only if absent" rule makes it **idempotent**: redeploys never overwrite liv
 
 ## Sync: local ↔ prod
 
-This is the crux, and it is currently **one-directional**.
+Both directions exist. Because prod and local both mutate the same SQLite files, **sync is "pick a winner and overwrite," not a merge.** Whichever side is authoritative for a session pushes (or the other pulls); the loser accepts the overwrite. In practice reviews now happen on prod, so the common move is **prod → Mac**.
 
 ### Mac → prod (supported)
 
@@ -71,9 +75,26 @@ Because prod data lives on the volume and the committed `data/` is only a first-
 
 Uploaded DBs take effect immediately — new requests open a fresh connection and see the new file; no redeploy needed.
 
-### Prod → Mac (not yet built)
+### Prod → Mac (supported)
 
-There is **no endpoint to download** `cards.db` / `graph.db` / `card_positions.json` / images back from the volume. So changes made *on the hosted site* (reviews, new exercises created on the phone) currently cannot be pulled back to the Mac. This is a known gap — see [the open question below](#open-question-prod--mac-sync).
+The reverse mirror. The **served side** (i.e. prod) exposes download endpoints; the **local instance** pulls from them and overwrites its own `./data`. All behind Basic Auth, all atomic via `.download` temp + `os.replace`:
+
+| Endpoint | Role |
+|---|---|
+| `GET /admin/download_data_file?name=<f>` | Returns one of `cards.db` / `graph.db` / `card_positions.json` (allowlisted). 400 on bad name, 404 if absent. |
+| `GET /admin/list_images` | JSON `{"images": [...]}` — every image basename in `<DATA_DIR>/images/`. (The images themselves download via the existing `/static/images/<name>` mount.) |
+| `POST /admin/sync_from_prod` | Run on the **local** instance. Pulls the 3 data files + all images from `PROD_URL` using `PROD_PASSWORD`, then overwrites local `./data`. |
+
+`sync_from_prod` (in `routes.py`, uses `requests`):
+
+1. Downloads the 3 data files to `<DATA_DIR>/<name>.download`.
+2. Backs up the current 3 files to `<DATA_DIR>/.sync_backup/` (one-level undo).
+3. Atomically swaps each in via `os.replace`.
+4. Lists prod images, downloads each via `/static/images/<name>`, overwrites local copies. **Local images absent from prod are left untouched** (add/overwrite, never delete).
+5. Resets the in-process `_cached_crt` (graph.db changed).
+6. Returns `{success, data_files, images: <count>}`; network errors → 502.
+
+**Deployment dependency:** the download endpoints must be running *on prod* for the pull to work, so a new download endpoint only takes effect after a redeploy. The local app can still serve (and self-test) these endpoints before deploying.
 
 ## Module map (deployment-relevant)
 
@@ -82,15 +103,11 @@ There is **no endpoint to download** `cards.db` / `graph.db` / `card_positions.j
 | `Procfile` | Railway start command. Binds uvicorn to `$PORT`. |
 | `.env.example` | Documents `DATA_DIR` and `APP_PASSWORD`. |
 | `src/anki_sketching/seed.py` | `seed_data_dir()` — idempotent first-boot volume seed. |
-| `src/anki_sketching/main.py` | `basic_auth_middleware`; calls `seed_data_dir()` before migrations. |
+| `src/anki_sketching/main.py` | `load_dotenv()` at import; `basic_auth_middleware`; calls `seed_data_dir()` before migrations. |
 | `src/utilities/paths.py` | `get_data_dir()` / `get_images_dir()` honor `DATA_DIR`. |
-| `src/anki_sketching/api/routes.py` | `/admin/upload_data_file`, `/admin/upload_image_file`. |
+| `src/anki_sketching/api/routes.py` | Upload: `/admin/upload_data_file`, `/admin/upload_image_file`. Download/pull: `/admin/download_data_file`, `/admin/list_images`, `/admin/sync_from_prod`. |
+| `.env` (gitignored) | Local-only `PROD_URL` / `PROD_PASSWORD` for prod → Mac sync. |
 
-## Open question: prod → Mac sync
+## Future shape: one-shot bundle
 
-The reverse direction is unbuilt. Possible shapes (to decide later):
-
-- **Download endpoints** — `GET /admin/download_data_file?name=cards.db` etc., mirroring the upload pair, then a small local script to pull all four artifacts.
-- A **bundle endpoint** — `GET /admin/export` returning a zip/tar of the whole `/data` tree in one request.
-
-Either way the merge story matters: prod and local both mutate the same SQLite files, so "sync" is really "pick a winner and overwrite," not a true merge. Whichever side is authoritative for a given session should push; the other side pulls and accepts the overwrite.
+The current pull fetches files one request at a time. If that gets slow with many images, a `GET /admin/export` returning a zip/tar of the whole `/data` tree (and a matching local import) would collapse it to one round-trip. Not built — the per-file pull is fine at current scale.

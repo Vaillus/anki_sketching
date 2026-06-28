@@ -7,6 +7,7 @@ import os
 import secrets
 import sqlite3
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,10 @@ def get_project_root() -> Path:
     """Calcule la racine du projet."""
     return Path(__file__).resolve().parent.parent.parent
 
+
+# Charge .env (PROD_URL / PROD_PASSWORD pour la sync prod → Mac) avant toute
+# lecture d'env var. No-op si le fichier n'existe pas (ex. en prod sur Railway).
+load_dotenv()
 
 # Seed le volume persistant avant toute migration ou ouverture de DB.
 seed_data_dir()
