@@ -267,7 +267,7 @@ function loadAllSavedCardsOnStartup() {
                     // Met le select sur le dernier deck pour la compatibilité
                     if (data.positions.deck) {
                         const deckSelect = document.getElementById('deck-name');
-                        deckSelect.value = data.positions.deck;
+                        if (deckSelect) deckSelect.value = data.positions.deck;  // absent en prod (UI Anki masquée)
                         currentDeck = data.positions.deck;
                     }
                     
