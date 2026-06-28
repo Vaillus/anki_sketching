@@ -2,12 +2,15 @@ function refreshState() {
     applyBlockingHighlights();
 }
 
-// Gestion du formulaire d'import
-document.getElementById('import-form').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const deckName = document.getElementById('deck-name').value;
-    importDeck(deckName);
-});
+// Gestion du formulaire d'import (absent en prod : UI Anki masquée)
+const importForm = document.getElementById('import-form');
+if (importForm) {
+    importForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const deckName = document.getElementById('deck-name').value;
+        importDeck(deckName);
+    });
+}
 
 // Popover Anki: toggle au clic sur le dot, fermeture au clic extérieur
 (function setupAnkiPopover() {
@@ -37,8 +40,9 @@ document.getElementById('import-form').addEventListener('submit', function(event
 // Gestionnaire pour le bouton de sauvegarde
 document.getElementById('save-positions').addEventListener('click', saveCardPositions);
 
-// Gestionnaire pour le bouton "Sync depuis la prod" (écrase la base locale)
-document.getElementById('sync-from-prod').addEventListener('click', async function() {
+// Gestionnaire pour le bouton "Sync depuis la prod" (absent en prod)
+const syncFromProdBtn = document.getElementById('sync-from-prod');
+if (syncFromProdBtn) syncFromProdBtn.addEventListener('click', async function() {
     if (!confirm('Écraser la base locale avec celle de la prod ?\n\nLes 3 fichiers de données et les images distantes seront récupérés. Une sauvegarde de la base locale est faite dans data/.sync_backup/.')) return;
     const btn = this;
     const original = btn.textContent;

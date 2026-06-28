@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from src.anki_interface.get_all_decks import get_all_decks
+from src.utilities.env import is_production
 
 
 def get_project_root() -> Path:
@@ -40,5 +41,6 @@ async def index(request: Request):
         ]
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "decks": sorted(dessin_decks)
+        "decks": sorted(dessin_decks),
+        "is_prod": is_production(),
     })

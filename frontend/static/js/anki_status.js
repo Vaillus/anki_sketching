@@ -3,11 +3,13 @@ let lastConnected = null;
 
 async function checkAnkiStatus() {
     try {
+        const statusEl = document.getElementById('anki-status');
+        if (!statusEl) return;  // UI Anki masquée (prod)
+
         const res = await fetch('/anki_status');
         const data = await res.json();
         const connected = data.connected;
 
-        const statusEl = document.getElementById('anki-status');
         const popoverEl = document.getElementById('anki-popover');
         const popoverStatusEl = document.getElementById('anki-popover-status');
         const importBtn = document.querySelector('#import-form button[type="submit"]');

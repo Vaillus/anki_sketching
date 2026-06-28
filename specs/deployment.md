@@ -16,18 +16,32 @@ The same FastAPI app that runs locally also runs on **Railway** as a hosted inst
 
 It is the **same codebase, same app object** (`src.anki_sketching.main:app`). Environment variables are the only thing that changes behavior between the two.
 
-## Configuration: two env vars
+## Configuration: env vars
 
-Both are documented in `.env.example`. Locally both are unset; on Railway both are set.
+All are documented in `.env.example`. Locally they're unset; on Railway the prod-side ones are set.
 
 | Env var | Purpose | Behavior when unset |
 |---|---|---|
 | `DATA_DIR` | Absolute path where `cards.db`, `graph.db`, `card_positions.json`, and `images/` live. Set to the mounted volume path (`/data`) in prod. | Falls back to `<project_root>/data` (`get_data_dir()` in `src/utilities/paths.py`). |
 | `APP_PASSWORD` | Single shared password for HTTP Basic Auth. | Auth middleware is a no-op — the app is fully open (fine for local dev). |
+| `APP_ENV` | Explicit environment name (`production` on Railway). Primary signal for `is_production()`. | Falls back to Railway's auto-injected vars; if none, treated as **local/dev**. |
 | `PROD_URL` | Base URL the **local** instance pulls from during prod → Mac sync. | Defaults to the known Railway URL (`DEFAULT_PROD_URL` in `routes.py`). |
 | `PROD_PASSWORD` | Password the local instance sends as Basic Auth when pulling from prod. **Same value** as prod's `APP_PASSWORD`. Only set this **locally** — never name it `APP_PASSWORD` locally or you'd switch on the local auth middleware. | Sync calls hit prod unauthenticated and get 401. |
 
 `PROD_URL` / `PROD_PASSWORD` live in a gitignored `.env` at the repo root, loaded at startup by `load_dotenv()` in `main.py` (dependency: `python-dotenv`).
+
+### Environment detection — `is_production()`
+
+`is_production()` (`src/utilities/env.py`) is the **single source of truth** for "am I running on the hosted instance?". Use it instead of re-deriving the answer from side-effect proxies (`APP_PASSWORD` set, `DATA_DIR` set, etc.).
+
+Rule:
+1. If `APP_ENV` is set → `production`/`prod` (case-insensitive) means prod; anything else means local.
+2. Otherwise fall back to Railway's auto-injected vars (`RAILWAY_ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME`, `RAILWAY_PROJECT_ID`) — present on Railway, absent locally.
+3. Neither → **local/dev**.
+
+So prod is detected automatically on Railway even without `APP_ENV`; setting `APP_ENV=production` makes it explicit and platform-independent.
+
+**Current uses:** the editor passes `is_prod` to its template to hide prod-irrelevant UI — the **Anki status chip + import popover** (AnkiConnect is Mac-only) and the **"Sync depuis la prod" button** (only meaningful when run locally). The auth middleware and seed still key off `APP_PASSWORD` / `DATA_DIR` respectively; they're candidates to migrate onto `is_production()` later but are left as-is for now.
 
 ### Auth model
 

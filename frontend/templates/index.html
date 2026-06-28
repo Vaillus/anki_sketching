@@ -16,12 +16,15 @@
     <div id="editor-header">
         <a href="/practice" id="nav-practice-btn">Practice →</a>
         <h1>Editor</h1>
+        {% if not is_prod %}
         <button id="anki-status" type="button" title="Vérification…" aria-haspopup="true" aria-expanded="false">
             <span id="anki-status-dot"></span>
             <span id="anki-status-label">Anki</span>
         </button>
+        {% endif %}
     </div>
 
+    {% if not is_prod %}
     <div id="anki-popover" hidden>
         <div id="anki-popover-status">Vérification…</div>
         <form id="import-form">
@@ -35,6 +38,7 @@
         </form>
         <button id="sync-from-prod" type="button">⬇️ Sync depuis la prod</button>
     </div>
+    {% endif %}
 
     <div id="toolbar">
         <button id="save-positions" type="button">💾 Sauvegarder positions</button>
