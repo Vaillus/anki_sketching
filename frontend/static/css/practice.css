@@ -452,7 +452,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    min-width: 90px;
+    min-width: 110px;
 }
 
 .reviewer-section-label {
@@ -541,6 +541,13 @@ body {
 
 .ease-change-editor {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.change-stepper {
+    display: flex;
     flex-direction: row;
     align-items: center;
     gap: 4px;
@@ -549,7 +556,8 @@ body {
 
 .change-dec,
 .change-inc,
-.change-confirm {
+.change-confirm,
+.preset-pill {
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -562,7 +570,8 @@ body {
 }
 
 .change-dec:hover,
-.change-inc:hover { filter: brightness(1.3); }
+.change-inc:hover,
+.preset-pill:hover { filter: brightness(1.3); }
 
 .change-confirm {
     background: #2980b9;
@@ -572,11 +581,45 @@ body {
 .change-confirm:hover { filter: brightness(1.15); }
 
 .change-value {
-    min-width: 28px;
+    width: 48px;
+    min-width: 48px;
     text-align: center;
     font-size: 14px;
     font-weight: bold;
     color: #f1eeff;
+    background: #1a1330;
+    border: 1px solid #5a4aaa;
+    border-radius: 6px;
+    padding: 4px 2px;
+}
+
+/* Les steppers −/+ font déjà le travail : on masque les flèches natives. */
+.change-value::-webkit-outer-spin-button,
+.change-value::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.change-value { -moz-appearance: textfield; appearance: textfield; }
+
+.change-value:focus {
+    outline: none;
+    border-color: #2980b9;
+}
+
+.change-presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.preset-pill {
+    padding: 4px 2px;
+    font-size: 12px;
+}
+
+.preset-pill.active {
+    background: #2980b9;
 }
 
 .ease-label    { font-size: 14px; font-weight: bold; }
@@ -762,4 +805,14 @@ body {
     .ease-column { width: 100%; min-width: 0; }
     .lr-ease-buttons { width: 100%; }
     .ease-btn { min-height: 44px; width: 100%; }
+
+    /* Même règle de tap target pour l'éditeur Change et ses presets */
+    .change-dec,
+    .change-inc,
+    .change-confirm,
+    .preset-pill { min-height: 44px; }
+    .change-dec,
+    .change-inc { flex: 0 0 56px; }
+    .change-value { flex: 1; width: auto; min-width: 0; height: 44px; font-size: 16px; }
+    .preset-pill { font-size: 14px; }
 }

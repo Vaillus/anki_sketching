@@ -70,13 +70,22 @@ The desktop right pane is *parents bar / current card + ease column / children b
 └──────────────────────────┘
 ```
 
+Tapping **Change** swaps that button for the inline editor, which stacks in the same column:
+
+```
+│   [ − ] [  14  ] [ + ]   │  number input, typable
+│   [        OK        ]   │
+│   [ 1j ] [ 3j ] [ 7j ]   │  preset pills, 3 per row
+│   [14j ] [30j ] [60j ]   │
+```
+
 Explicitly **out for v1**:
 
 - Parents bar
 - Children bar
 - SVG connectors
 
-The desktop `current-card-row` (`grid-template-columns: 1fr auto 1fr`) collapses to a single column: card on top, ease buttons stacked beneath. Ease buttons have tap targets ≥ 44px tall.
+The desktop `current-card-row` (`grid-template-columns: 1fr auto 1fr`) collapses to a single column: card on top, ease buttons stacked beneath. Ease buttons have tap targets ≥ 44px tall — the preset pills and the `−` / `+` steppers follow the same rule.
 
 The image carousel and lightbox stay available; the lightbox already covers the viewport on any width.
 

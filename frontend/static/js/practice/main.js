@@ -3,6 +3,65 @@
  * Dashboard de practice : grille de cartes dues + panneau de contexte.
  */
 
+// ── Intervalles ──────────────────────────────────────────────────────────────
+
+// Plafond servi par le backend (src/graph/cards_db.py::MAX_INTERVAL_DAYS) et injecté
+// dans practice.html. Le repli n'existe que si la page est servie sans le template.
+const MAX_INTERVAL = window.MAX_INTERVAL || 60;
+const CHANGE_PRESETS = [1, 3, 7, 14, 30, MAX_INTERVAL];
+
+function clampInterval(v) {
+    return Math.max(1, Math.min(MAX_INTERVAL, v));
+}
+
+/** Valeur courante de l'éditeur Change, bornée, avec repli si le champ est vide. */
+function readChangeValue(scope, fallback) {
+    const input = scope.querySelector('.change-value');
+    const v = parseInt(input ? input.value : NaN);
+    return clampInterval(Number.isNaN(v) ? fallback : v);
+}
+
+function highlightPreset(scope, value) {
+    scope.querySelectorAll('.preset-pill').forEach(pill => {
+        pill.classList.toggle('active', parseInt(pill.dataset.days) === value);
+    });
+}
+
+/**
+ * Point de passage unique pour toute modification de l'éditeur Change
+ * (champ, +/-, presets, clavier) : borne, écrit, met à jour l'aperçu et le surlignage.
+ */
+function setChangeValue(scope, value) {
+    const v = clampInterval(value);
+    const input = scope.querySelector('.change-value');
+    const preview = scope.querySelector('.change-preview');
+    if (input) input.value = v;
+    if (preview) preview.textContent = `${v}j`;
+    highlightPreset(scope, v);
+    return v;
+}
+
+function openChangeEditor(scope) {
+    const changeBtn = scope.querySelector('.ease-change');
+    const editor = scope.querySelector('.ease-change-editor');
+    const input = scope.querySelector('.change-value');
+    if (!changeBtn || !editor) return;
+    changeBtn.style.display = 'none';
+    editor.style.display = 'flex';
+    if (input) {
+        input.focus();
+        input.select();   // taper remplace la valeur au lieu de la compléter
+    }
+}
+
+function closeChangeEditor(scope) {
+    const changeBtn = scope.querySelector('.ease-change');
+    const editor = scope.querySelector('.ease-change-editor');
+    if (!changeBtn || !editor) return;
+    editor.style.display = 'none';
+    changeBtn.style.display = '';
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function escapeHtmlPractice(str) {
@@ -396,7 +455,7 @@ function buildCurrentCardRow(card) {
     ).join('');
 
     const typeClass = (card.type_label || 'new').toLowerCase();
-    const currentInterval = card.interval || 1;
+    const currentInterval = clampInterval(card.interval || 1);
 
     // Current card element
     const cardEl = document.createElement('div');
@@ -484,10 +543,18 @@ function buildCurrentCardRow(card) {
                     <span class="ease-interval change-preview">${currentInterval}j</span>
                 </button>
                 <div class="ease-change-editor" style="display:none">
-                    <button class="change-dec">−</button>
-                    <span class="change-value">${currentInterval}</span>
-                    <button class="change-inc">+</button>
-                    <button class="change-confirm">OK</button>
+                    <div class="change-stepper">
+                        <button class="change-dec" type="button">−</button>
+                        <input type="number" class="change-value" min="1"
+                               max="${MAX_INTERVAL}" value="${currentInterval}">
+                        <button class="change-inc" type="button">+</button>
+                    </div>
+                    <button class="change-confirm" type="button">OK</button>
+                    <div class="change-presets">
+                        ${CHANGE_PRESETS.map(d =>
+                            `<button class="preset-pill" type="button" data-days="${d}">${d}j</button>`
+                        ).join('')}
+                    </div>
                 </div>
             </div>
         </div>
@@ -506,31 +573,48 @@ function buildCurrentCardRow(card) {
 
     // Bouton Change — affiche l'éditeur inline
     const changeBtn = easeCol.querySelector('.ease-change');
-    const changeEditor = easeCol.querySelector('.ease-change-editor');
     const changeValueEl = easeCol.querySelector('.change-value');
     const changePreview = easeCol.querySelector('.change-preview');
 
-    changeBtn.addEventListener('click', () => {
-        changeBtn.style.display = 'none';
-        changeEditor.style.display = 'flex';
-        changeEditor.querySelector('.change-confirm').focus();
-    });
+    changeBtn.addEventListener('click', () => openChangeEditor(easeCol));
 
     easeCol.querySelector('.change-dec').addEventListener('click', () => {
-        const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
-        changeValueEl.textContent = v;
-        changePreview.textContent = `${v}j`;
+        setChangeValue(easeCol, readChangeValue(easeCol, currentInterval) - 1);
     });
 
     easeCol.querySelector('.change-inc').addEventListener('click', () => {
-        const v = parseInt(changeValueEl.textContent) + 1;
-        changeValueEl.textContent = v;
-        changePreview.textContent = `${v}j`;
+        setChangeValue(easeCol, readChangeValue(easeCol, currentInterval) + 1);
+    });
+
+    // Les presets posent la valeur sans soumettre : on peut cliquer 7j puis ajuster à 9.
+    easeCol.querySelectorAll('.preset-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            setChangeValue(easeCol, parseInt(pill.dataset.days));
+            changeValueEl.focus();
+            changeValueEl.select();
+        });
+    });
+
+    // Frappe directe : on resynchronise aperçu et surlignage sans réécrire le champ,
+    // sinon borner en cours de frappe ferait sauter la valeur (taper 100 → 1, 10, 60).
+    changeValueEl.addEventListener('input', () => {
+        const v = parseInt(changeValueEl.value);
+        if (Number.isNaN(v)) return;   // champ vidé en cours de frappe : on laisse faire
+        changePreview.textContent = `${clampInterval(v)}j`;
+        highlightPreset(easeCol, clampInterval(v));
+    });
+
+    // La normalisation du champ lui-même attend la fin de la saisie (blur / Entrée),
+    // pour qu'il n'affiche jamais durablement une valeur que le serveur écrêterait.
+    changeValueEl.addEventListener('change', () => {
+        setChangeValue(easeCol, readChangeValue(easeCol, currentInterval));
     });
 
     easeCol.querySelector('.change-confirm').addEventListener('click', () => {
-        submitAnswer('change', parseInt(changeValueEl.textContent));
+        submitAnswer('change', readChangeValue(easeCol, currentInterval));
     });
+
+    highlightPreset(easeCol, currentInterval);
 
     return row;
 }
@@ -650,25 +734,25 @@ document.addEventListener('keydown', e => {
     if (!reviewer) return;
 
     const changeEditor = reviewer.querySelector('.ease-change-editor');
-    const changeBtn = reviewer.querySelector('.ease-change');
-    const changeValueEl = reviewer.querySelector('.change-value');
-    const changePreview = reviewer.querySelector('.change-preview');
     const inChangeMode = changeEditor && changeEditor.style.display !== 'none';
 
+    // En mode Change, les chiffres appartiennent au champ de saisie : ce branchement
+    // rend inertes les raccourcis 1/2/3 tant que l'éditeur est ouvert.
     if (inChangeMode) {
+        const fallback = readChangeValue(reviewer, 1);
         if (e.key === 'Enter') {
             e.preventDefault();
-            submitAnswer('change', parseInt(changeValueEl.textContent));
-        } else if (e.key === 'ArrowUp' || e.key === '+') {
+            submitAnswer('change', fallback);
+        } else if (e.key === 'Escape') {
             e.preventDefault();
-            const v = parseInt(changeValueEl.textContent) + 1;
-            changeValueEl.textContent = v;
-            if (changePreview) changePreview.textContent = `${v}j`;
+            closeChangeEditor(reviewer);
+        } else if (e.key === 'ArrowUp' || e.key === '+') {
+            // preventDefault évite le double pas : insertion du caractère + stepper natif.
+            e.preventDefault();
+            setChangeValue(reviewer, fallback + 1);
         } else if (e.key === 'ArrowDown' || e.key === '-') {
             e.preventDefault();
-            const v = Math.max(1, parseInt(changeValueEl.textContent) - 1);
-            changeValueEl.textContent = v;
-            if (changePreview) changePreview.textContent = `${v}j`;
+            setChangeValue(reviewer, fallback - 1);
         }
         return;
     }
@@ -676,11 +760,8 @@ document.addEventListener('keydown', e => {
     if (e.key === '1') submitAnswer('failed');
     else if (e.key === '2') submitAnswer('maintain');
     else if (e.key === '3') {
-        if (changeBtn && changeEditor) {
-            changeBtn.style.display = 'none';
-            changeEditor.style.display = 'flex';
-            changeEditor.querySelector('.change-confirm').focus();
-        }
+        e.preventDefault();   // sinon le « 3 » atterrit dans le champ qu'on vient de focus
+        openChangeEditor(reviewer);
     }
 });
 

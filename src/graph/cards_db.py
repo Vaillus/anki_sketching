@@ -8,6 +8,11 @@ from pathlib import Path
 
 from src.utilities.paths import get_data_dir
 
+# Plafond de l'intervalle de révision, en jours. Borne la colonne `interval` sur le
+# chemin de révision (voir specs/review.md#interval-cap). L'import Anki, lui, écrit
+# des intervalles bruts sans plafond.
+MAX_INTERVAL_DAYS = 60
+
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS cards (
     card_id TEXT PRIMARY KEY,

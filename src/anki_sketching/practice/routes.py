@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from src.graph.cards_db import get_cards_db_conn
+from src.graph.cards_db import MAX_INTERVAL_DAYS, get_cards_db_conn
 from src.utilities.paths import get_data_dir, get_images_dir
 
 
@@ -27,7 +27,7 @@ _COLS = ("card_id, is_new, due_date, interval,"
 
 
 def _build_card(row: tuple, images_dir: Path) -> dict:
-    (card_id, is_new, _due_date, _interval,
+    (card_id, is_new, _due_date, interval,
      texts_json, image_filenames_json, tags_json) = row
 
     texts = json.loads(texts_json) if texts_json else {}
@@ -44,12 +44,18 @@ def _build_card(row: tuple, images_dir: Path) -> dict:
         "images": images,
         "tags": tags,
         "type_label": "New" if is_new else "Review",
+        # La colonne d'ease en a besoin pour libeller Maintain et amorcer l'éditeur
+        # Change. Sans elle le front lisait `card.interval || 1` et affichait 1 partout.
+        "interval": interval or 0,
     }
 
 
 @router.get("/practice")
 async def practice(request: Request):
-    return templates.TemplateResponse("practice.html", {"request": request})
+    return templates.TemplateResponse(
+        "practice.html",
+        {"request": request, "max_interval": MAX_INTERVAL_DAYS},
+    )
 
 
 @router.get("/practice/card/{card_id}/context")

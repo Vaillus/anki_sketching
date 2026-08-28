@@ -17,7 +17,7 @@ from src.anki_interface import Card, get_collection_crt, find_all_profiles, anki
 from src.anki_interface.get_cards_ids import get_cards_ids
 from src.utilities.paths import get_positions_file, get_images_dir, get_data_dir, ensure_dir_exists
 from src.graph.blocking import compute_blocking_states, compute_topo_depths
-from src.graph.cards_db import get_cards_db_conn
+from src.graph.cards_db import MAX_INTERVAL_DAYS, get_cards_db_conn
 from src.graph.parse_graph import parse_json_to_db
 from src.graph.schema import get_config, set_config, migrate_db
 from src.graph.local_cards import (
@@ -432,9 +432,18 @@ async def review_card_endpoint(request: Request):
         if action == "failed":
             new_interval = 1
         elif action == "maintain":
-            new_interval = max(1, current_interval or 1)
+            new_interval = current_interval or 1
         else:  # change
-            new_interval = int(data.get("interval", current_interval or 1))
+            try:
+                new_interval = int(data.get("interval", current_interval or 1))
+            except (TypeError, ValueError):
+                return JSONResponse(
+                    {"success": False, "error": "interval doit être un entier"},
+                    status_code=400,
+                )
+
+        # Plafond unique appliqué aux trois actions : aucune ne peut y échapper.
+        new_interval = max(1, min(MAX_INTERVAL_DAYS, new_interval))
 
         new_due = (today + timedelta(days=new_interval)).isoformat()
 
@@ -491,27 +500,32 @@ async def reschedule_card(request: Request):
 
 @router.post("/reschedule_distant_cards")
 async def reschedule_distant_cards():
-    """Ramène à aujourd'hui toutes les cartes du canvas dues dans > 5 jours."""
+    """Ramène à aujourd'hui les cartes dues dans > 5 jours, et écrête les intervalles.
+
+    Les deux opérations sont indépendantes : une carte peut porter un intervalle de
+    557 jours tout en étant due demain. Écrêter sans ramener (ou l'inverse) laisserait
+    la carte repartir au loin dès le premier « Maintain ».
+    """
     try:
         threshold = (date.today() + timedelta(days=5)).isoformat()
         today = date.today().isoformat()
 
         cards_conn = get_cards_db_conn()
         try:
-            cursor = cards_conn.execute("""
-                SELECT card_id FROM cards
+            rescheduled = cards_conn.execute("""
+                UPDATE cards SET due_date = ?
                 WHERE is_new = 0
                   AND due_date IS NOT NULL AND date(due_date) > ?
-            """, (threshold,))
-            to_reschedule = [row[0] for row in cursor.fetchall()]
+            """, (today, threshold)).rowcount
 
-            if not to_reschedule:
-                return JSONResponse({"success": True, "rescheduled": 0})
+            capped = cards_conn.execute(
+                "UPDATE cards SET interval = ? WHERE interval > ?",
+                (MAX_INTERVAL_DAYS, MAX_INTERVAL_DAYS),
+            ).rowcount
 
-            cards_conn.executemany(
-                "UPDATE cards SET due_date = ? WHERE card_id = ?",
-                [(today, cid) for cid in to_reschedule],
-            )
+            if not rescheduled and not capped:
+                return JSONResponse({"success": True, "rescheduled": 0, "capped": 0})
+
             cards_conn.commit()
 
             graph_conn = _get_graph_conn()
@@ -523,7 +537,7 @@ async def reschedule_distant_cards():
         finally:
             cards_conn.close()
 
-        return JSONResponse({"success": True, "rescheduled": len(to_reschedule)})
+        return JSONResponse({"success": True, "rescheduled": rescheduled, "capped": capped})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 

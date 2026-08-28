@@ -31,7 +31,7 @@ CREATE TABLE cards (
     card_id              TEXT PRIMARY KEY,
     is_new               BOOLEAN NOT NULL DEFAULT 1,    -- 1 until the card's first review
     due_date             TEXT,                          -- ISO 'YYYY-MM-DD' (or NULL)
-    interval             INTEGER NOT NULL DEFAULT 0,    -- days
+    interval             INTEGER NOT NULL DEFAULT 0,    -- days, clamped to MAX_INTERVAL_DAYS on review
     texts_json           TEXT,                          -- JSON: {field_name: value, ...}
     image_filenames_json TEXT,                          -- JSON: ["file1.png", "file2.png", ...]
     tags_json            TEXT,                          -- JSON: ["tag1", "tag2", ...]
@@ -57,9 +57,14 @@ The flag is set at import: any Anki card with `type == 0` (Anki's "New") imports
 The `due_date` column is **always an ISO date string** (or `NULL`). It is *not* Anki's raw `due` integer — which would mean different things for review cards (days since CRT) vs learning/relearning (Unix timestamp). The translation happens in `Card.get_due_date(crt)` during import (`src/anki_interface/card.py`); the result is then stored as ISO regardless of the card's Anki state.
 
 After import, this app never re-reads Anki's `due` for that card. Updates come from:
-- `/review_card` (sets `due_date = today + new_interval`)
+- `/review_card` (sets `due_date = today + new_interval`, with `new_interval` clamped to `[1, MAX_INTERVAL_DAYS]`)
 - `/reschedule_card` (sets `due_date = today`)
-- `/reschedule_distant_cards` (sets `due_date = today` for cards due > 5 days out)
+- `/reschedule_distant_cards` (sets `due_date = today` for cards due > 5 days out, **and** cuts every `interval` back to `MAX_INTERVAL_DAYS`)
+
+`MAX_INTERVAL_DAYS` is defined in `graph/cards_db.py`. It bounds the *review* path only —
+Anki import writes raw intervals through unclamped (a re-import can reintroduce a 557-day
+interval), and `/reschedule_distant_cards` is what cleans those up. See
+[review.md](./review.md#interval-cap).
 
 Once a card has been reviewed or rescheduled here, its Anki-side scheduling drifts from reality — there is no "sync back to Anki" feature. Re-imports never touch existing rows, so any local progress is preserved.
 
