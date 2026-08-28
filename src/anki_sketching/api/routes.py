@@ -500,14 +500,20 @@ async def reschedule_card(request: Request):
 
 @router.post("/reschedule_distant_cards")
 async def reschedule_distant_cards():
-    """Ramène à aujourd'hui les cartes dues dans > 5 jours, et écrête les intervalles.
+    """Ramène à aujourd'hui les cartes dues au-delà du plafond, et écrête les intervalles.
 
     Les deux opérations sont indépendantes : une carte peut porter un intervalle de
     557 jours tout en étant due demain. Écrêter sans ramener (ou l'inverse) laisserait
     la carte repartir au loin dès le premier « Maintain ».
+
+    Les deux seuils valent MAX_INTERVAL_DAYS : une fois le plafond appliqué à chaque
+    révision, aucune carte légitime ne peut être due au-delà de cet horizon, donc tout
+    ce qui le dépasse est un reliquat d'avant le plafond. Le seuil de snap valait
+    5 jours à l'époque où ce bouton n'était qu'un outil de rattrapage — bien trop large
+    ici : il ramassait des cartes saines à 8-40 jours d'intervalle.
     """
     try:
-        threshold = (date.today() + timedelta(days=5)).isoformat()
+        threshold = (date.today() + timedelta(days=MAX_INTERVAL_DAYS)).isoformat()
         today = date.today().isoformat()
 
         cards_conn = get_cards_db_conn()

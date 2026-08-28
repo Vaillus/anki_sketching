@@ -68,7 +68,7 @@ if (syncFromProdBtn) syncFromProdBtn.addEventListener('click', async function() 
 
 // Gestionnaire pour le bouton désapprendre lointaines
 document.getElementById('reschedule-distant').addEventListener('click', async function() {
-    if (!confirm('Ramener à aujourd\'hui les cartes dues dans plus de 5 jours, et écrêter les intervalles trop longs ?')) return;
+    if (!confirm('Ramener à aujourd\'hui les cartes dues au-delà du plafond, et écrêter les intervalles trop longs ?')) return;
     try {
         const res = await fetch('/reschedule_distant_cards', { method: 'POST' });
         const data = await res.json();

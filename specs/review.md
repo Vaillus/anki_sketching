@@ -240,7 +240,7 @@ independent** updates:
 
 | Update | Selector | Effect |
 |--------|----------|--------|
-| snap | `is_new = 0 AND due_date IS NOT NULL AND date(due_date) > today+5d` | `due_date = today` |
+| snap | `is_new = 0 AND due_date IS NOT NULL AND date(due_date) > today + MAX_INTERVAL_DAYS` | `due_date = today` |
 | cut back | `interval > MAX_INTERVAL_DAYS` | `interval = MAX_INTERVAL_DAYS` |
 
 The two card sets do not coincide — a card can carry a 557-day interval while being due
@@ -250,6 +250,18 @@ tomorrow — so neither update is a filter on the other. Returns
 Snapping alone was not enough: it made distant cards due again but left the oversized interval
 in place, so the first `Maintain` sent the card straight back out to 557 days. The cut back is
 the missing half of what the button already meant to do.
+
+**Both thresholds are the cap.** Once every review clamps to `MAX_INTERVAL_DAYS`, no legitimately
+scheduled card can fall due beyond `today + MAX_INTERVAL_DAYS`; anything past that horizon is a
+leftover from before the cap existed. Snapping at that same boundary therefore catches exactly
+the runaway cards and nothing else.
+
+The threshold used to be a flat 5 days, from when this was purely a catch-up tool ("I've been
+away for months, bring everything back"). That net is far too wide next to a 60-day cap: on the
+production data it selected 13 cards, of which only 4 were runaways — the other 9 were healthy
+cards on 8-to-40-day intervals whose deliberate spacing would have been destroyed. Widening the
+threshold to the cap trades the catch-up behavior away; to bulk-reset after a long absence, use
+"Désapprendre" on individual cards instead.
 
 `compute_blocking_states()` runs once, after both updates.
 
